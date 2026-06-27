@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import argparse
+import logging
+from pathlib import Path
 
 from .logging_setup import configure_logging
 
@@ -21,3 +23,8 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> None:
     args = parser().parse_args(argv)
     configure_logging(args.verbose)
+
+    if args.mode == "batch":
+        from .config_loader import load_config
+        return
+    parser().error("choose --mode batch/replay, or provide --analyze RESULT_DIR")
