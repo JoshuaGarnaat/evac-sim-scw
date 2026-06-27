@@ -7,6 +7,21 @@ from pathlib import Path
 from .logging_setup import configure_logging
 
 
+def _latest(path_value: str) -> Path:
+    path = Path(path_value)
+    if path.exists() or "latest" not in path.parts:
+        return path
+    index = path.parts.index("latest")
+    root = Path(*path.parts[:index]) if index else Path(".")
+    marker = root / "latest.txt"
+    if not marker.exists():
+        return path
+    target = Path(marker.read_text(encoding="utf-8").strip())
+    for part in path.parts[index + 1:]:
+        target /= part
+    return target
+
+
 def parser() -> argparse.ArgumentParser:
     result = argparse.ArgumentParser(description="evac_sim_scw")
     result.add_argument("--mode", choices=("batch", "replay"))
@@ -23,8 +38,15 @@ def parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> None:
     args = parser().parse_args(argv)
     configure_logging(args.verbose)
+    if args.analyze:
+        from .analysis.charts import generate_charts
 
+        result = _latest(args.analyze)
+        charts = generate_charts(result)
+        logging.info("Charts written to %s", charts)
+        return
     if args.mode == "batch":
+        from .analysis.charts import generate_charts
         from .config_loader import load_config
         return
     parser().error("choose --mode batch/replay, or provide --analyze RESULT_DIR")
