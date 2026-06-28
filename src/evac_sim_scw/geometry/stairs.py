@@ -19,7 +19,7 @@ def stair_position(
         y = entrance_y + (landing_y - entrance_y) * u
         z = top_z - floor_height * 0.5 * u
     elif p < 0.60:
-        u = (p - 0.40) / 0.10
+        u = (p - 0.40) / 0.20
         angle = math.pi * (1.0 - u)
         radius = lane_offset - lateral
         arc_height = 1.0 - 0.75 * lateral
@@ -27,7 +27,7 @@ def stair_position(
         y = landing_y + arc_height * math.sin(angle)
         z = top_z - floor_height * 0.5
     else:
-        u = (p - 0.60) / 0.80
+        u = (p - 0.60) / 0.40
         x = stair.x + lane_offset - lateral
         y = landing_y - (landing_y - entrance_y) * u
         z = top_z - floor_height * (0.5 + 0.5 * u)
