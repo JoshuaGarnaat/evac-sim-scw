@@ -53,4 +53,11 @@ def main(argv: list[str] | None = None) -> None:
         output = SimulationEngine(load_config(args.config)).run()
         generate_charts(output)
         return
+    if args.mode == "replay":
+        from .visualization.server import serve_replay
+
+        if not args.replay:
+            raise SystemExit("--replay is required in replay mode")
+        serve_replay(_latest(args.replay), args.host, args.port, not args.no_browser)
+        return
     parser().error("choose --mode batch/replay, or provide --analyze RESULT_DIR")
