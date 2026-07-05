@@ -48,5 +48,9 @@ def main(argv: list[str] | None = None) -> None:
     if args.mode == "batch":
         from .analysis.charts import generate_charts
         from .config_loader import load_config
+        from .simulation.engine import SimulationEngine
+
+        output = SimulationEngine(load_config(args.config)).run()
+        generate_charts(output)
         return
     parser().error("choose --mode batch/replay, or provide --analyze RESULT_DIR")
