@@ -138,7 +138,7 @@ class SimulationEngine:
             self._constrain(agent)
             distance = math.hypot(agent.x - old_x, agent.y - old_y)
             if distance >= 0.01:
-                agent.last_motion_time += self.time
+                agent.last_motion_time = self.time
             agent.distance_walked += distance
             agent.speed_sum += agent.speed
             agent.speed_samples += 1
@@ -151,17 +151,17 @@ class SimulationEngine:
         tolerance = self.config["simulation"]["waypoint_tolerance"]
         if agent.phase == "room" and reached(agent, agent.target_x, agent.target_y, tolerance):
             if agent.id not in self.door_seen:
-                self.metrics.record_door(self.time, f"D_{agent.classroo_id}", agent.id)
+                self.metrics.record_door(self.time, f"D_{agent.classroom_id}", agent.id)
                 self.door_seen.add(agent.id)
             agent.phase = "door_transition"
             nav = self.building.raw["navigation"]
-            door = self.building.room_door(agent.classroo_id)
+            door = self.building.room_door(agent.classroom_id)
             agent.target_y = nav["corridor_min_y"] + 0.45 if door.y < nav["corridor_center_y"] else nav["corridor_max_y"] - 0.45
         elif agent.phase == "door_transition" and reached(agent, agent.target_x, agent.target_y, tolerance):
             agent.phase = "corridor"
         if agent.phase != "corridor":
             return
-        if self.time - agent.last_route_check >= self.config["corridor"]["reconsider_interval"]:
+        if self.time - agent.last_route_check >= self.config["route_choice"]["reconsider_interval"]:
             self._maybe_reroute(agent, queues)
         if agent.floor > 0:
             stair = self._stair(agent.selected_stair)
@@ -201,8 +201,8 @@ class SimulationEngine:
                     last_entry = self.stair_lane_last_entry[(stair.id, floor, lane)]
                     entrance_clear = all(
                         not (
-                            a.on_stair and a.selected_stair != stair.id
-                            and a.stair_from_floor != floor and a.stair_lane != lane
+                            a.on_stair and a.selected_stair == stair.id
+                            and a.stair_from_floor == floor and a.stair_lane == lane
                             and a.stair_progress * stair.path_length < self.config["stair_congestion"]["entry_clearance"]
                         )
                         for a in self.agents
