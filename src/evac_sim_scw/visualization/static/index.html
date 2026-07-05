@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>evac_sim_scw</title>
+  <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.166.1/build/three.module.js"}}</script>
+</head>
+<body>
+  <canvas id="scene"></canvas>
+  <section id="hud">
+    <div><strong id="timer">00:00.0</strong><span>simulation time</span></div>
+    <div><strong id="evacuated">0</strong><span>evacuated</span></div>
+    <div><strong id="remaining">0</strong><span>remaining</span></div>
+    <div><strong id="fps">--</strong><span>render FPS</span></div>
+    <div class="progress"><i id="progress"></i></div>
+  </section>
+  <section id="controls">
+    <button id="play">Pause</button>
+    <label>Speed <select id="speed"><option>0.25</option><option>0.5</option><option selected>1</option><option>2</option><option>4</option></select>×</label>
+    <label>Floor <select id="floor"><option value="all">All</option><option value="0">Ground</option><option value="1">First</option><option value="2">Second</option></select></label>
+    <button id="overview">Overview</button>
+    <input id="timeline" type="range" min="0" max="1000" value="0">
+  </section>
+  <aside id="help">Click view for mouse look · WASD move · Space/Ctrl vertical · Shift faster · Esc releases mouse</aside>
+  <div id="loading">Loading replay…</div>
+  <script type="module" src="app.js"></script>
+</body>
+</html>
