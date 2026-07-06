@@ -7,7 +7,7 @@ name = "evac_sim_scw"
 version = "1.0.0"
 description = ""
 readme = "README.md"
-requires-python = ">=3.11,<3.12"
+requires-python = ">=3.11"
 dependencies = [
   "numpy>=1.26,<3",
   "PyYAML>=6.0,<7",
