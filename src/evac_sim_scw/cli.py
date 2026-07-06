@@ -23,29 +23,35 @@ def _latest(path_value: str) -> Path:
 
 
 def parser() -> argparse.ArgumentParser:
-    result = argparse.ArgumentParser(description="evac_sim_scw")
-    result.add_argument("--mode", choices=("batch", "replay"))
-    result.add_argument("--config", default="config/scenario.yaml")
-    result.add_argument("--replay", help="Replay JSONL path")
-    result.add_argument("--analyze", metavar="RESULT_DIR", help="Generate charts from a result directory")
-    result.add_argument("--host", default="127.0.0.1")
-    result.add_argument("--port", type=int, default=8765)
-    result.add_argument("--no-browser", action="store_true")
-    result.add_argument("--verbose", action="store_true")
+    result = argparse.ArgumentParser(prog="evac-sim", description="Run and inspect evacuation simulations")
+    result.add_argument("--verbose", action="store_true", help="Enable debug logging")
+    commands = result.add_subparsers(dest="command", required=True)
+
+    run = commands.add_parser("run", help="Run a simulation")
+    run.add_argument("config", metavar="SCENARIO", help="Scenario YAML file")
+
+    replay = commands.add_parser("replay", help="Open a simulation replay")
+    replay.add_argument("result", metavar="RESULT", help="Result directory or replay JSONL file")
+    replay.add_argument("--host", default="127.0.0.1")
+    replay.add_argument("--port", type=int, default=8765)
+    replay.add_argument("--no-browser", action="store_true")
+
+    analyze = commands.add_parser("analyze", help="Generate charts from simulation results")
+    analyze.add_argument("result", metavar="RESULT_DIR", help="Result directory")
     return result
 
 
 def main(argv: list[str] | None = None) -> None:
     args = parser().parse_args(argv)
     configure_logging(args.verbose)
-    if args.analyze:
+    if args.command == "analyze":
         from .analysis.charts import generate_charts
 
-        result = _latest(args.analyze)
+        result = _latest(args.result)
         charts = generate_charts(result)
         logging.info("Charts written to %s", charts)
         return
-    if args.mode == "batch":
+    if args.command == "run":
         from .analysis.charts import generate_charts
         from .config_loader import load_config
         from .simulation.engine import SimulationEngine
@@ -53,11 +59,11 @@ def main(argv: list[str] | None = None) -> None:
         output = SimulationEngine(load_config(args.config)).run()
         generate_charts(output)
         return
-    if args.mode == "replay":
+    if args.command == "replay":
         from .visualization.server import serve_replay
 
-        if not args.replay:
-            raise SystemExit("--replay is required in replay mode")
-        serve_replay(_latest(args.replay), args.host, args.port, not args.no_browser)
+        replay = _latest(args.result)
+        if replay.is_dir():
+            replay /= "replay.jsonl"
+        serve_replay(replay, args.host, args.port, not args.no_browser)
         return
-    parser().error("choose --mode batch/replay, or provide --analyze RESULT_DIR")

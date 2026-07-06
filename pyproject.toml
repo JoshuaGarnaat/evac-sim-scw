@@ -15,7 +15,7 @@ dependencies = [
 ]
 
 [project.scripts]
-evac_sim_scw = "evac_sim_scw.cli:main"
+evac-sim = "evac_sim_scw.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
