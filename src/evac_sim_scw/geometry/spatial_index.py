@@ -13,7 +13,7 @@ class SpatialGrid:
     def rebuild(self, agents: Iterable) -> None:
         self.cells.clear()
         for agent in agents:
-            if agent.state == "exited" or agent.on_stair:
+            if agent.state == "exited":
                 continue
             self.cells[self.key(agent.floor, agent.x, agent.y)].append(agent.id)
 

@@ -6,7 +6,7 @@ import math
 def update_local_density(agents, grid, radius: float) -> None:
     area = math.pi * radius * radius
     for agent in agents:
-        if agent.state == "exited" or agent.on_stair:
+        if agent.state == "exited":
             continue
         count = 0
         for index in grid.neighbors(agent.floor, agent.x, agent.y):

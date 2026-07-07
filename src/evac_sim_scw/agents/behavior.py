@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 
-def density_speed_factor(density: float, config: dict, stairs: bool = False) -> float:
-    values = config["stair_congestion"] if stairs else config["congestion"]
+def density_speed_factor(density: float, config: dict) -> float:
+    values = config["congestion"]
     free = values["free_density"]
     jam = values["jam_density"]
     if density <= free:

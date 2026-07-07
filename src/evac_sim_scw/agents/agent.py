@@ -15,8 +15,6 @@ class Agent:
     z: float
     radius: float
     preferred_speed: float
-    stair_up_speed: float
-    stair_down_speed: float
     max_speed: float
     reaction_time: float
     max_acceleration: float
@@ -34,10 +32,8 @@ class Agent:
     on_stair: bool = False
     stair_progress: float = 0.0
     stair_from_floor: int = 0
-    stair_lane: int = 0
     local_density: float = 0.0
     pressure: float = 0.0
-    current_stair_speed: float = 0.0
     evacuation_time: float | None = None
     distance_walked: float = 0.0
     speed_sum: float = 0.0
@@ -53,6 +49,4 @@ class Agent:
 
     @property
     def speed(self) -> float:
-        if self.on_stair:
-            return self.current_stair_speed
         return (self.vx * self.vx + self.vy * self.vy) ** 0.5

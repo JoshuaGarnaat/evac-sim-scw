@@ -28,7 +28,7 @@ class MetricsCollector:
         self.time_series.append({
             "time": round(timestamp, 3), "evacuated": len(agents) - len(active), "remaining": len(active),
             "mean_speed": _mean(speeds), "min_speed": min(speeds, default=0.0), "max_speed": max(speeds, default=0.0),
-            "mean_stair_speed": _mean([a.current_stair_speed for a in stair_agents]),
+            "mean_stair_speed": _mean([a.speed for a in stair_agents]),
             "mean_density": _mean(densities), "min_density": min(densities, default=0.0), "max_density": max(densities, default=0.0),
             "floor_0_density": floor_density[0] / floor_area, "floor_1_density": floor_density[1] / floor_area,
             "floor_2_density": floor_density[2] / floor_area,

@@ -19,8 +19,6 @@ def create_population(building, config: dict) -> list[Agent]:
     rooms = [r for r in building.rooms if r.kind == "classroom"]
     ages = rng.integers(population["age_min"], population["age_max"] + 1, count)
     speeds = _clipped_normal(rng, movement["walking_speed"], count)
-    stair_down = _clipped_normal(rng, movement["stair_descending_speed"], count)
-    stair_up = _clipped_normal(rng, movement["stair_ascending_speed"], count)
     reactions = _clipped_normal(rng, movement["reaction_time"], count)
     radii = _clipped_normal(rng, movement["body_radius"], count)
     accelerations = _clipped_normal(rng, movement["max_acceleration"], count)
@@ -41,7 +39,6 @@ def create_population(building, config: dict) -> list[Agent]:
             id=i, age=int(ages[i]), classroom_id=room.id, group_id=room.id,
             floor=room.floor, x=x, y=y, z=room.floor * building.floor_height,
             radius=float(radii[i]), preferred_speed=float(speeds[i]),
-            stair_up_speed=float(stair_up[i]), stair_down_speed=float(stair_down[i]),
             max_speed=float(speeds[i] * movement["maximum_speed_multiplier"]),
             reaction_time=float(reactions[i]), max_acceleration=float(accelerations[i]),
             personal_space=float(spaces[i]),

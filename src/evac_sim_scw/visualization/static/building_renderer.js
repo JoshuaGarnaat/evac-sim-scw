@@ -43,11 +43,11 @@ function roomWalls(scene, room, door, elevation, group) {
   if(right>0)box(scene,[right,wallH,t],[door.x+door.width/2+right/2,elevation+wallH/2,door.y],color,.30,group);
 }
 
-function ramp(scene, stair, floor, firstFlight, floorHeight, group) {
+function ramp(scene, stair, floor, firstFlight, floorHeight, entrance, landing, group) {
   const enclosureWidth=stair.enclosure_width||stair.width*2.4;
-  const laneOffset=enclosureWidth*.23, entrance=stair.y-stair.depth/2+.05, landing=entrance+Math.min(5.9,stair.depth-1.9);
+  const flightOffset=enclosureWidth*.23;
   const run=landing-entrance, rise=floorHeight*.5, slopeLength=Math.hypot(run,rise);
-  const x=stair.x+(firstFlight?-laneOffset:laneOffset);
+  const x=stair.x+(firstFlight?-flightOffset:flightOffset);
   const verticalTop=firstFlight?floor*floorHeight:floor*floorHeight-rise;
   const y=verticalTop-rise/2, z=(entrance+landing)/2;
   const mesh=box(scene,[stair.width*.96,.14,slopeLength],[x,y,z],firstFlight?0xc49a62:0xb8834f,1,group);
@@ -76,10 +76,10 @@ export function renderBuilding(scene, building) {
   });
   building.stairs.forEach(stair=>{
     for(let floor=1;floor<=2;floor++){
-      const enclosureWidth=stair.enclosure_width||stair.width*2.4, entrance=stair.y-stair.depth/2+.05, landing=entrance+Math.min(5.9,stair.depth-1.9), run=landing-entrance;
-      ramp(scene,stair,floor,true,h,groups[floor-1]);
-      ramp(scene,stair,floor,false,h,groups[floor-1]);
-      box(scene,[enclosureWidth*.94,.14,1.9],[stair.x,floor*h-h*.5,landing+.8],0xd7b47e,1,groups[floor-1]);
+      const enclosureWidth=stair.enclosure_width||stair.width*2.4, entrance=building.navigation.corridor_max_y, landing=entrance+Math.min(5.9,stair.depth-1.9), run=landing-entrance;
+      ramp(scene,stair,floor,true,h,entrance,landing,groups[floor-1]);
+      ramp(scene,stair,floor,false,h,entrance,landing,groups[floor-1]);
+      box(scene,[enclosureWidth*.94,.14,stair.width],[stair.x,floor*h-h*.5,landing+stair.width/2],0xd7b47e,1,groups[floor-1]);
       const railY=floor*h-h*.5;
       box(scene,[.07,1.0,run],[stair.x-enclosureWidth*.49,railY,landing-run/2],0x9faab0,.9,groups[floor-1]);
       box(scene,[.07,1.0,run],[stair.x+enclosureWidth*.49,railY,landing-run/2],0x9faab0,.9,groups[floor-1]);
