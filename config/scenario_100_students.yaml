@@ -6,7 +6,7 @@ scenario:
 building:
   layout_file: example_school.json
 population:
-  count: 100
+  count: 0
   age_min: 12
   age_max: 19
   classroom_group_size_target: 30

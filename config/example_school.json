@@ -3,7 +3,7 @@
   "name": "Example",
   "synthetic": true,
   "units": "meters",
-  "dimensions": {"width": 90.0, "depth": 44.0, "floor_height": 3.6, "slab_thickness": 0.22},
+  "dimensions": {"width": 0, "depth": 0, "floor_height": 3.6, "slab_thickness": 0.22},
   "floors": [
     {"level": 0, "name": "ground_floor", "elevation": 0.0},
     {"level": 1, "name": "first_floor", "elevation": 3.6},
@@ -12,9 +12,9 @@
   "defaults": {"classroom_door_width": 1.1, "wall_height": 2.8, "wall_thickness": 0.14},
   "navigation": {"corridor_center_y": 22.0, "corridor_min_y": 19.2, "corridor_max_y": 24.8},
   "room_generators": [{
-    "kind": "classroom", "floors": [0, 1, 2], "count_per_side": 12,
-    "start_x": 0.0, "room_width": 7.5, "room_depth": 18.5, "gap": 0.0,
-    "south_y": 0.5, "north_y": 25.5,
+    "kind": "classroom", "floors": [0, 1, 2], "count_per_side": 5,
+    "start_x": 0.0, "room_width": 7.3, "room_depth": 6.7, "gap": 0.0,
+    "south_y": 14.7, "north_y": 25.5,
     "skip_indices": {"south": [], "north": [1, 5, 9]}
   }],
   "rooms": [
@@ -29,9 +29,9 @@
     {"id": "SR_EAST_F2", "kind": "stairwell", "floor": 2, "x": 67.5, "y": 25.0, "width": 7.5, "depth": 7.8}
   ],
   "corridors": [
-    {"id": "C0", "floor": 0, "x": 0.0, "y": 19.0, "width": 90.0, "depth": 6.0},
-    {"id": "C1", "floor": 1, "x": 0.0, "y": 19.0, "width": 90.0, "depth": 6.0},
-    {"id": "C2", "floor": 2, "x": 0.0, "y": 19.0, "width": 90.0, "depth": 6.0}
+    {"id": "C0", "floor": 0, "x": 0.0, "y": 21, "width": 36.5, "depth": 4.4},
+    {"id": "C1", "floor": 1, "x": 0.0, "y": 21, "width": 36.5, "depth": 4.4},
+    {"id": "C2", "floor": 2, "x": 0.0, "y": 21, "width": 36.5, "depth": 4.4}
   ],
   "stairs": [
     {"id": "S_WEST", "x": 11.25, "y": 28.9, "width": 2.4, "enclosure_width": 6.4, "depth": 7.8, "floors": [0, 1, 2], "path_length": 16.0, "vertical_rise": 3.6, "capacity_per_m2": 2.0},
