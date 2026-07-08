@@ -1,22 +1,49 @@
+const METADATA_URL = '/data/replay_metadata.json';
+const REPLAY_URL = '/data/replay.jsonl';
+
 export async function loadReplay() {
   const [metadataResponse, replayResponse] = await Promise.all([
-    fetch('/data/replay_metadata.json'), fetch('/data/replay.jsonl')
+    fetch(METADATA_URL),
+    fetch(REPLAY_URL),
   ]);
-  if (!metadataResponse.ok || !replayResponse.ok) throw new Error('Replay data could not be loaded');
+
+  if (!metadataResponse.ok || !replayResponse.ok) {
+    throw new Error('Replay data could not be loaded');
+  }
+
   const metadata = await metadataResponse.json();
-  const text = await replayResponse.text();
-  const frames = text.trim().split(/\r?\n/).filter(Boolean).map(JSON.parse);
+  const replayText = await replayResponse.text();
+  const frames = replayText
+    .trim()
+    .split(/\r?\n/)
+    .filter(Boolean)
+    .map(JSON.parse);
+
+  if (frames.length === 0) {
+    throw new Error('Replay does not contain any frames');
+  }
+
   return { metadata, frames };
 }
 
 export function framePair(frames, time) {
-  let low = 0, high = frames.length - 1;
+  let low = 0;
+  let high = frames.length - 1;
+
   while (low < high) {
-    const mid = Math.ceil((low + high) / 2);
-    if (frames[mid].t <= time) low = mid; else high = mid - 1;
+    const middle = Math.ceil((low + high) / 2);
+    if (frames[middle].t <= time) {
+      low = middle;
+    } else {
+      high = middle - 1;
+    }
   }
-  const a = frames[low];
-  const b = frames[Math.min(low + 1, frames.length - 1)];
-  const alpha = b.t === a.t ? 0 : Math.max(0, Math.min(1, (time - a.t) / (b.t - a.t)));
-  return { a, b, alpha, index: low };
+
+  const current = frames[low];
+  const next = frames[Math.min(low + 1, frames.length - 1)];
+  const alpha = next.t === current.t
+    ? 0
+    : Math.max(0, Math.min(1, (time - current.t) / (next.t - current.t)));
+
+  return { a: current, b: next, alpha, index: low };
 }

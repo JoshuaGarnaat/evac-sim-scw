@@ -1,129 +1,360 @@
 import * as THREE from 'three';
 
-const material = (color, opacity=1) => new THREE.MeshStandardMaterial({color, transparent: opacity < 1, opacity, side: THREE.DoubleSide});
+const FLOOR_COUNT = 3;
+const FLOOR_SLAB_COLOR = 0x253746;
+const WALL_COLOR = 0xb9c8cf;
+const HEATMAP_COLUMNS = 12;
+const HEATMAP_ROWS = 6;
 
-function box(scene, size, position, color, opacity=1, group=null) {
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(...size), material(color, opacity));
+function createMaterial(color, opacity = 1) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    opacity,
+    side: THREE.DoubleSide,
+    transparent: opacity < 1,
+  });
+}
+
+function addBox(parent, size, position, color, opacity = 1) {
+  const mesh = new THREE.Mesh(
+    new THREE.BoxGeometry(...size),
+    createMaterial(color, opacity),
+  );
   mesh.position.set(...position);
-  (group || scene).add(mesh);
+  parent.add(mesh);
   return mesh;
 }
 
-function slabWithStairOpenings(scene, building, floor, elevation, group) {
-  const stairRooms=building.rooms.filter(r=>r.floor===floor&&r.kind==='stairwell').sort((a,b)=>a.x-b.x);
-  const thickness=.18, color=0x253746;
-  if(!stairRooms.length){
-    box(scene,[building.dimensions.width,thickness,building.dimensions.depth],[building.dimensions.width/2,elevation-.12,building.dimensions.depth/2],color,.92,group);
+function renderFloorSlab(building, floor, elevation, group) {
+  const thickness = 0.18;
+  const slabElevation = elevation - 0.12;
+  const stairRooms = building.rooms
+    .filter(room => room.floor === floor && room.kind === 'stairwell')
+    .sort((left, right) => left.x - right.x);
+
+  if (stairRooms.length === 0) {
+    addBox(
+      group,
+      [building.dimensions.width, thickness, building.dimensions.depth],
+      [building.dimensions.width / 2, slabElevation, building.dimensions.depth / 2],
+      FLOOR_SLAB_COLOR,
+      0.92,
+    );
     return;
   }
-  const y0=stairRooms[0].y, y1=stairRooms[0].y+stairRooms[0].depth;
-  box(scene,[building.dimensions.width,thickness,y0],[building.dimensions.width/2,elevation-.12,y0/2],color,.92,group);
-  if(y1<building.dimensions.depth) box(scene,[building.dimensions.width,thickness,building.dimensions.depth-y1],[building.dimensions.width/2,elevation-.12,(y1+building.dimensions.depth)/2],color,.92,group);
-  let cursor=0;
-  stairRooms.forEach(room=>{
-    if(room.x>cursor)box(scene,[room.x-cursor,thickness,y1-y0],[(cursor+room.x)/2,elevation-.12,(y0+y1)/2],color,.92,group);
-    cursor=room.x+room.width;
+
+  const openingStartY = stairRooms[0].y;
+  const openingEndY = stairRooms[0].y + stairRooms[0].depth;
+  addBox(
+    group,
+    [building.dimensions.width, thickness, openingStartY],
+    [building.dimensions.width / 2, slabElevation, openingStartY / 2],
+    FLOOR_SLAB_COLOR,
+    0.92,
+  );
+
+  if (openingEndY < building.dimensions.depth) {
+    addBox(
+      group,
+      [building.dimensions.width, thickness, building.dimensions.depth - openingEndY],
+      [
+        building.dimensions.width / 2,
+        slabElevation,
+        (openingEndY + building.dimensions.depth) / 2,
+      ],
+      FLOOR_SLAB_COLOR,
+      0.92,
+    );
+  }
+
+  let cursorX = 0;
+  stairRooms.forEach(room => {
+    if (room.x > cursorX) {
+      addBox(
+        group,
+        [room.x - cursorX, thickness, openingEndY - openingStartY],
+        [(cursorX + room.x) / 2, slabElevation, (openingStartY + openingEndY) / 2],
+        FLOOR_SLAB_COLOR,
+        0.92,
+      );
+    }
+    cursorX = room.x + room.width;
   });
-  if(cursor<building.dimensions.width)box(scene,[building.dimensions.width-cursor,thickness,y1-y0],[(cursor+building.dimensions.width)/2,elevation-.12,(y0+y1)/2],color,.92,group);
+
+  if (cursorX < building.dimensions.width) {
+    addBox(
+      group,
+      [building.dimensions.width - cursorX, thickness, openingEndY - openingStartY],
+      [
+        (cursorX + building.dimensions.width) / 2,
+        slabElevation,
+        (openingStartY + openingEndY) / 2,
+      ],
+      FLOOR_SLAB_COLOR,
+      0.92,
+    );
+  }
 }
 
-function roomWalls(scene, room, door, elevation, group) {
-  const wallH=1.3,t=.10,color=0xb9c8cf;
-  box(scene,[t,wallH,room.depth],[room.x,elevation+wallH/2,room.y+room.depth/2],color,.30,group);
-  box(scene,[t,wallH,room.depth],[room.x+room.width,elevation+wallH/2,room.y+room.depth/2],color,.30,group);
-  if(room.kind==='stairwell'){
-    box(scene,[room.width,wallH,t],[room.x+room.width/2,elevation+wallH/2,room.y+room.depth],color,.30,group);
+function renderRoomWalls(room, door, elevation, group) {
+  const wallHeight = 1.3;
+  const wallThickness = 0.1;
+  const wallElevation = elevation + wallHeight / 2;
+
+  addBox(
+    group,
+    [wallThickness, wallHeight, room.depth],
+    [room.x, wallElevation, room.y + room.depth / 2],
+    WALL_COLOR,
+    0.3,
+  );
+  addBox(
+    group,
+    [wallThickness, wallHeight, room.depth],
+    [room.x + room.width, wallElevation, room.y + room.depth / 2],
+    WALL_COLOR,
+    0.3,
+  );
+
+  if (room.kind === 'stairwell') {
+    addBox(
+      group,
+      [room.width, wallHeight, wallThickness],
+      [room.x + room.width / 2, wallElevation, room.y + room.depth],
+      WALL_COLOR,
+      0.3,
+    );
     return;
   }
-  const corridorSide=door.y===room.y?'south':'north';
-  const outerY=corridorSide==='south'?room.y+room.depth:room.y;
-  box(scene,[room.width,wallH,t],[room.x+room.width/2,elevation+wallH/2,outerY],color,.30,group);
-  const left=door.x-door.width/2-room.x, right=room.x+room.width-(door.x+door.width/2);
-  if(left>0)box(scene,[left,wallH,t],[room.x+left/2,elevation+wallH/2,door.y],color,.30,group);
-  if(right>0)box(scene,[right,wallH,t],[door.x+door.width/2+right/2,elevation+wallH/2,door.y],color,.30,group);
+
+  const corridorSide = door.y === room.y ? 'south' : 'north';
+  const outerWallY = corridorSide === 'south' ? room.y + room.depth : room.y;
+  addBox(
+    group,
+    [room.width, wallHeight, wallThickness],
+    [room.x + room.width / 2, wallElevation, outerWallY],
+    WALL_COLOR,
+    0.3,
+  );
+
+  const leftSegmentWidth = door.x - door.width / 2 - room.x;
+  const rightSegmentWidth = room.x + room.width - (door.x + door.width / 2);
+  if (leftSegmentWidth > 0) {
+    addBox(
+      group,
+      [leftSegmentWidth, wallHeight, wallThickness],
+      [room.x + leftSegmentWidth / 2, wallElevation, door.y],
+      WALL_COLOR,
+      0.3,
+    );
+  }
+  if (rightSegmentWidth > 0) {
+    addBox(
+      group,
+      [rightSegmentWidth, wallHeight, wallThickness],
+      [door.x + door.width / 2 + rightSegmentWidth / 2, wallElevation, door.y],
+      WALL_COLOR,
+      0.3,
+    );
+  }
 }
 
-function ramp(scene, stair, floor, firstFlight, floorHeight, entrance, landing, group) {
-  const enclosureWidth=stair.enclosure_width||stair.width*2.4;
-  const flightOffset=enclosureWidth*.23;
-  const run=landing-entrance, rise=floorHeight*.5, slopeLength=Math.hypot(run,rise);
-  const x=stair.x+(firstFlight?-flightOffset:flightOffset);
-  const verticalTop=firstFlight?floor*floorHeight:floor*floorHeight-rise;
-  const y=verticalTop-rise/2, z=(entrance+landing)/2;
-  const mesh=box(scene,[stair.width*.96,.14,slopeLength],[x,y,z],firstFlight?0xc49a62:0xb8834f,1,group);
-  mesh.rotation.x=firstFlight?Math.atan2(rise,run):-Math.atan2(rise,run);
+function renderStairFlight(stair, floor, firstFlight, floorHeight, entrance, landing, group) {
+  const enclosureWidth = stair.enclosure_width || stair.width * 2.4;
+  const flightOffset = enclosureWidth * 0.23;
+  const run = landing - entrance;
+  const rise = floorHeight * 0.5;
+  const slopeLength = Math.hypot(run, rise);
+  const x = stair.x + (firstFlight ? -flightOffset : flightOffset);
+  const top = firstFlight ? floor * floorHeight : floor * floorHeight - rise;
+
+  const mesh = addBox(
+    group,
+    [stair.width * 0.96, 0.14, slopeLength],
+    [x, top - rise / 2, (entrance + landing) / 2],
+    firstFlight ? 0xc49a62 : 0xb8834f,
+  );
+  mesh.rotation.x = firstFlight ? Math.atan2(rise, run) : -Math.atan2(rise, run);
+}
+
+function renderFloor(building, floor, group) {
+  const floorHeight = building.dimensions.floor_height;
+  const elevation = floor * floorHeight;
+  renderFloorSlab(building, floor, elevation, group);
+
+  building.corridors
+    .filter(corridor => corridor.floor === floor)
+    .forEach(corridor => {
+      addBox(
+        group,
+        [corridor.width, 0.035, corridor.depth],
+        [corridor.x + corridor.width / 2, elevation + 0.02, corridor.y + corridor.depth / 2],
+        0x6c8292,
+        0.78,
+      );
+    });
+
+  building.rooms
+    .filter(room => room.floor === floor)
+    .forEach((room, index) => {
+      const door = building.doors.find(
+        candidate => candidate.floor === floor && candidate.connects[0] === room.id,
+      );
+
+      if (room.kind !== 'stairwell') {
+        addBox(
+          group,
+          [room.width, 0.025, room.depth],
+          [room.x + room.width / 2, elevation + 0.03, room.y + room.depth / 2],
+          index % 2 ? 0x345366 : 0x3d5d70,
+          0.74,
+        );
+      }
+      renderRoomWalls(room, door, elevation, group);
+    });
+
+  building.doors
+    .filter(door => door.floor === floor)
+    .forEach(door => {
+      addBox(
+        group,
+        [door.width, 0.035, 0.18],
+        [door.x, elevation + 0.06, door.y],
+        door.kind === 'stair_entry' ? 0xff9f43 : 0xe0bd77,
+        0.95,
+      );
+    });
+}
+
+function renderExits(building, groundFloorGroup) {
+  building.exits.forEach(exit => {
+    const isSideExit = exit.x < 1 || exit.x > building.dimensions.width - 1;
+    const size = isSideExit ? [0.18, 2.5, exit.width] : [exit.width, 2.5, 0.18];
+    const marker = addBox(
+      groundFloorGroup,
+      size,
+      [exit.x, 1.25, exit.y],
+      0x37ef79,
+      0.75,
+    );
+    marker.material.emissive.setHex(0x126b34);
+  });
+}
+
+function renderStairs(building, floorGroups) {
+  const floorHeight = building.dimensions.floor_height;
+  building.stairs.forEach(stair => {
+    for (let floor = 1; floor < FLOOR_COUNT; floor += 1) {
+      const group = floorGroups[floor - 1];
+      const enclosureWidth = stair.enclosure_width || stair.width * 2.4;
+      const entrance = building.navigation.corridor_max_y;
+      const landing = entrance + Math.min(5.9, stair.depth - 1.9);
+      const run = landing - entrance;
+      const railElevation = floor * floorHeight - floorHeight * 0.5;
+
+      renderStairFlight(stair, floor, true, floorHeight, entrance, landing, group);
+      renderStairFlight(stair, floor, false, floorHeight, entrance, landing, group);
+      addBox(
+        group,
+        [enclosureWidth * 0.94, 0.14, stair.width],
+        [stair.x, railElevation, landing + stair.width / 2],
+        0xd7b47e,
+      );
+      addBox(
+        group,
+        [0.07, 1, run],
+        [stair.x - enclosureWidth * 0.49, railElevation, landing - run / 2],
+        0x9faab0,
+        0.9,
+      );
+      addBox(
+        group,
+        [0.07, 1, run],
+        [stair.x + enclosureWidth * 0.49, railElevation, landing - run / 2],
+        0x9faab0,
+        0.9,
+      );
+    }
+  });
 }
 
 export function renderBuilding(scene, building) {
-  const groups=[new THREE.Group(),new THREE.Group(),new THREE.Group()];
-  groups.forEach(g=>scene.add(g));
-  const h=building.dimensions.floor_height;
-  for(let floor=0;floor<3;floor++){
-    const elevation=floor*h;
-    slabWithStairOpenings(scene,building,floor,elevation,groups[floor]);
-    building.corridors.filter(c=>c.floor===floor).forEach(c=>box(scene,[c.width,.035,c.depth],[c.x+c.width/2,elevation+.02,c.y+c.depth/2],0x6c8292,.78,groups[floor]));
-    building.rooms.filter(r=>r.floor===floor).forEach((room,index)=>{
-      const door=building.doors.find(d=>d.floor===floor&&d.connects[0]===room.id);
-      if(room.kind!=='stairwell')box(scene,[room.width,.025,room.depth],[room.x+room.width/2,elevation+.03,room.y+room.depth/2],index%2?0x345366:0x3d5d70,.74,groups[floor]);
-      roomWalls(scene,room,door,elevation,groups[floor]);
-    });
-    building.doors.filter(d=>d.floor===floor).forEach(d=>box(scene,[d.width,.035,.18],[d.x,elevation+.06,d.y],d.kind==='stair_entry'?0xff9f43:0xe0bd77,.95,groups[floor]));
-  }
-  building.exits.forEach(exit=>{
-    const side=exit.x<1||exit.x>building.dimensions.width-1,size=side?[.18,2.5,exit.width]:[exit.width,2.5,.18];
-    const marker=box(scene,size,[exit.x,1.25,exit.y],0x37ef79,.75,groups[0]);
-    marker.material.emissive.setHex(0x126b34);
-  });
-  building.stairs.forEach(stair=>{
-    for(let floor=1;floor<=2;floor++){
-      const enclosureWidth=stair.enclosure_width||stair.width*2.4, entrance=building.navigation.corridor_max_y, landing=entrance+Math.min(5.9,stair.depth-1.9), run=landing-entrance;
-      ramp(scene,stair,floor,true,h,entrance,landing,groups[floor-1]);
-      ramp(scene,stair,floor,false,h,entrance,landing,groups[floor-1]);
-      box(scene,[enclosureWidth*.94,.14,stair.width],[stair.x,floor*h-h*.5,landing+stair.width/2],0xd7b47e,1,groups[floor-1]);
-      const railY=floor*h-h*.5;
-      box(scene,[.07,1.0,run],[stair.x-enclosureWidth*.49,railY,landing-run/2],0x9faab0,.9,groups[floor-1]);
-      box(scene,[.07,1.0,run],[stair.x+enclosureWidth*.49,railY,landing-run/2],0x9faab0,.9,groups[floor-1]);
-    }
-  });
-  return groups;
+  const floorGroups = Array.from({ length: FLOOR_COUNT }, () => new THREE.Group());
+  floorGroups.forEach(group => scene.add(group));
+
+  floorGroups.forEach((group, floor) => renderFloor(building, floor, group));
+  renderExits(building, floorGroups[0]);
+  renderStairs(building, floorGroups);
+  return floorGroups;
 }
 
-export function createHeatmap(scene,building){
-  const cols=12,rows=6,cw=building.dimensions.width/cols,cd=building.dimensions.depth/rows,h=building.dimensions.floor_height;
-  const geometry=new THREE.BoxGeometry(cw-.08,.025,cd-.08),groups=[],dummy=new THREE.Object3D(),color=new THREE.Color();
-  for(let f=0;f<3;f++){
-    const mesh=new THREE.InstancedMesh(geometry,new THREE.MeshBasicMaterial({vertexColors:true,transparent:true,opacity:.3,depthWrite:false}),cols*rows);
-    let index=0;
-    for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
-      dummy.position.set(x*cw+cw/2,f*h+.07,y*cd+cd/2);
-      dummy.updateMatrix();
-      mesh.setMatrixAt(index,dummy.matrix);
-      mesh.setColorAt(index,new THREE.Color(0x123d20));
-      index++;
-    }
-    mesh.instanceMatrix.needsUpdate=true;
-    mesh.instanceColor.needsUpdate=true;
-    scene.add(mesh);
-    groups.push(mesh);
-  }
-  function update(agents){
-    const counts=new Uint16Array(3*cols*rows);
-    agents.forEach(a=>{
-      if(a[5]===8)return;
-      const x=Math.max(0,Math.min(cols-1,Math.floor(a[1]/cw))),y=Math.max(0,Math.min(rows-1,Math.floor(a[2]/cd))),f=Math.max(0,Math.min(2,a[4]));
-      counts[f*cols*rows+y*cols+x]++;
+export function createHeatmap(scene, building) {
+  const cellWidth = building.dimensions.width / HEATMAP_COLUMNS;
+  const cellDepth = building.dimensions.depth / HEATMAP_ROWS;
+  const cellsPerFloor = HEATMAP_COLUMNS * HEATMAP_ROWS;
+  const geometry = new THREE.BoxGeometry(cellWidth - 0.08, 0.025, cellDepth - 0.08);
+  const floorMeshes = [];
+  const dummy = new THREE.Object3D();
+  const color = new THREE.Color();
+
+  for (let floor = 0; floor < FLOOR_COUNT; floor += 1) {
+    const material = new THREE.MeshBasicMaterial({
+      depthWrite: false,
+      opacity: 0.3,
+      transparent: true,
+      vertexColors: true,
     });
-    groups.forEach((mesh,f)=>{
-      for(let i=0;i<cols*rows;i++){
-        const v=Math.min(1,counts[f*cols*rows+i]/18);
-        color.setHSL(.33*(1-v),.92,.18+v*.35);
-        mesh.setColorAt(i,color);
+    const mesh = new THREE.InstancedMesh(geometry, material, cellsPerFloor);
+
+    let index = 0;
+    for (let row = 0; row < HEATMAP_ROWS; row += 1) {
+      for (let column = 0; column < HEATMAP_COLUMNS; column += 1) {
+        dummy.position.set(
+          column * cellWidth + cellWidth / 2,
+          floor * building.dimensions.floor_height + 0.07,
+          row * cellDepth + cellDepth / 2,
+        );
+        dummy.updateMatrix();
+        mesh.setMatrixAt(index, dummy.matrix);
+        mesh.setColorAt(index, new THREE.Color(0x123d20));
+        index += 1;
       }
-      mesh.instanceColor.needsUpdate=true;
+    }
+
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.instanceColor.needsUpdate = true;
+    scene.add(mesh);
+    floorMeshes.push(mesh);
+  }
+
+  function update(agents) {
+    const counts = new Uint16Array(FLOOR_COUNT * cellsPerFloor);
+    agents.forEach(agent => {
+      if (agent[5] === 8) {
+        return;
+      }
+
+      const column = THREE.MathUtils.clamp(Math.floor(agent[1] / cellWidth), 0, HEATMAP_COLUMNS - 1);
+      const row = THREE.MathUtils.clamp(Math.floor(agent[2] / cellDepth), 0, HEATMAP_ROWS - 1);
+      const floor = THREE.MathUtils.clamp(agent[4], 0, FLOOR_COUNT - 1);
+      counts[floor * cellsPerFloor + row * HEATMAP_COLUMNS + column] += 1;
+    });
+
+    floorMeshes.forEach((mesh, floor) => {
+      for (let index = 0; index < cellsPerFloor; index += 1) {
+        const density = Math.min(1, counts[floor * cellsPerFloor + index] / 18);
+        color.setHSL(0.33 * (1 - density), 0.92, 0.18 + density * 0.35);
+        mesh.setColorAt(index, color);
+      }
+      mesh.instanceColor.needsUpdate = true;
     });
   }
-  function setFloor(value){
-    groups.forEach((mesh,f)=>mesh.visible=value==='all'||Number(value)===f);
+
+  function setFloor(selectedFloor) {
+    floorMeshes.forEach((mesh, floor) => {
+      mesh.visible = selectedFloor === 'all' || Number(selectedFloor) === floor;
+    });
   }
-  return{groups,update,setFloor};
+
+  return { groups: floorMeshes, setFloor, update };
 }

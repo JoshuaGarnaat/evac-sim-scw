@@ -10,7 +10,7 @@ def _clipped_normal(rng, spec: dict, count: int) -> np.ndarray:
     values = rng.normal(spec["mean"], spec["std"], count)
     return np.clip(values, spec["min"], spec["max"])
 
-
+# Create a population based on the configuration
 def create_population(building, config: dict) -> list[Agent]:
     population = config["population"]
     movement = config["movement"]

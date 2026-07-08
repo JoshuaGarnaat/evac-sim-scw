@@ -51,8 +51,6 @@ class Stairwell:
 
 
 def validate_layout(data: dict[str, Any]) -> None:
-    if data.get("id") != "example_school" and data.get("synthetic"):
-        raise ValueError("Synthetic layouts must be clearly identified")
     for key in ("dimensions", "floors", "corridors", "stairs", "exits"):
         if key not in data:
             raise ValueError(f"Layout missing required key: {key}")

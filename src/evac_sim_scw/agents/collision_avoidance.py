@@ -14,6 +14,7 @@ def separate(agent, neighbors, max_correction: float = 0.04) -> tuple[float, flo
         if overlap > 0:
             correction = min(max_correction, overlap * 0.5)
             if distance < 1e-5:
+                # Resolve coincident agents deterministically to preserve reproducible runs.
                 angle = ((agent.id * 37 + other.id * 17) % 360) * math.pi / 180
                 nx, ny = math.cos(angle), math.sin(angle)
             else:

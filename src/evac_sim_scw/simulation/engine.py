@@ -51,6 +51,7 @@ class SimulationEngine:
             started = time.perf_counter()
             self.step(dt)
             self.metrics.step_times.append(time.perf_counter() - started)
+            # The epsilon prevents accumulated binary rounding from skipping a sample boundary.
             if self.time + 1e-9 >= next_replay:
                 replay.write_frame(self.time, self.agents, self.evacuated)
                 next_replay += replay_interval
@@ -98,6 +99,7 @@ class SimulationEngine:
             agent.ax, agent.ay = movement_force(agent, agent.target_x, agent.target_y, desired, neighbors, self.config["social_force"])
             stalled_for = self.time - agent.last_motion_time
             if agent.phase == "corridor" and stalled_for > 3.0 and agent.local_density < 1.5:
+                # Apply a bounded lateral nudge to break low-density force equilibria.
                 dx, dy = agent.target_x - agent.x, agent.target_y - agent.y
                 length = max(math.hypot(dx, dy), 0.01)
                 direction = -1.0 if agent.id % 2 else 1.0
@@ -334,6 +336,7 @@ class SimulationEngine:
         landing_y = self._stair_landing_y(stair)
         run = max(landing_y - entry_y, 0.01)
         top_z = agent.stair_from_floor * self.building.floor_height
+        # Reserve 40/20/40 percent of progress for the two flights and landing.
         if agent.phase == "stair_first_flight":
             fraction = min(max((agent.y - entry_y) / run, 0.0), 1.0)
             agent.stair_progress = 0.4 * fraction
@@ -350,6 +353,7 @@ class SimulationEngine:
 
     def _exit_target(self, agent, exit_door) -> tuple[float, float]:
         usable_width = max(0.0, exit_door.width - 2 * agent.radius)
+        # Stable hashing distributes agents across the opening without adding RNG state.
         unit = ((agent.id * 2654435761 + 1013904223) % 10007) / 10006
         offset = (unit - 0.5) * usable_width
         if exit_door.x < 1.0 or exit_door.x > self.building.width - 1.0:
