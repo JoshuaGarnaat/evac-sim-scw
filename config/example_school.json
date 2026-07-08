@@ -3,7 +3,7 @@
   "name": "Example",
   "synthetic": true,
   "units": "meters",
-  "dimensions": {"width": 0, "depth": 0, "floor_height": 3.6, "slab_thickness": 0.22},
+  "dimensions": {"width": 99.0, "depth": 44.0, "floor_height": 3.6, "slab_thickness": 0.22},
   "floors": [
     {"level": 0, "name": "ground_floor", "elevation": 0.0},
     {"level": 1, "name": "first_floor", "elevation": 3.6},
@@ -14,11 +14,19 @@
   "room_generators": [{
     "kind": "classroom", "floors": [0, 1, 2], "count_per_side": 5,
     "start_x": 0.0, "room_width": 7.3, "room_depth": 6.7, "gap": 0.0,
-    "south_y": 10.7, "north_y": 25.5,
-    "skip_indices": {"south": [0], "north": [1]}
+    "south_y": 14.4, "north_y": 25.5,
+    "skip_indices": {"south": [1,2,3,4], "north": []}
+  },
+{
+    "kind": "classroom", "floors": [0, 1, 2], "count_per_side": 3,
+    "start_x": 11.05, "room_width": 7.3, "room_depth": 6.7, "gap": 0.0,
+    "south_y": 14.4, "north_y": 25.5,
+    "skip_indices": {"south": [], "north": [0,1,2]}
   }],
   "rooms": [
-    {"id": "SR_WEST_F0", "kind": "stairwell", "floor": 0, "x": 7.5, "y": 25.0, "width": 7.5, "depth": 7.8}
+    {"id": "SR_WEST_F0", "kind": "stairwell", "floor": 0, "x": 6.5, "y": 21.1, "width": 7.5, "depth": -7.8},
+    {"id": "SR_WEST_F1", "kind": "stairwell", "floor": 1, "x": 6.5, "y": 21.1, "width": 7.5, "depth": -7.8},
+    {"id": "SR_WEST_F2", "kind": "stairwell", "floor": 2, "x": 6.5, "y": 21.1, "width": 7.5, "depth": -7.8}
   ],
   "corridors": [
     {"id": "C0", "floor": 0, "x": 0.0, "y": 21, "width": 36.5, "depth": 4.4},
@@ -26,10 +34,10 @@
     {"id": "C2", "floor": 2, "x": 0.0, "y": 21, "width": 36.5, "depth": 4.4}
   ],
   "stairs": [
-    {"id": "S_WEST", "x": 11.25, "y": 25.5, "width": 2.4, "enclosure_width": 6.4, "depth": 7.8, "floors": [0, 1, 2], "path_length": 16.0, "vertical_rise": 3.6, "capacity_per_m2": 2.0}
+    {"id": "S_WEST", "x": 11.25, "y": 17.2, "width": 2.4, "enclosure_width": 6.4, "depth": -7.8, "floors": [0, 1, 2], "path_length": 16.0, "vertical_rise": 3.6, "capacity_per_m2": 2.0}
   ],
   "exits": [
-    {"id": "EXIT_WEST", "x": 0.2, "y": 22.0, "width": 2.4},
+    {"id": "EXIT_WEST", "x": 0.2, "y": 24.0, "width": 2.4},
     {"id": "EXIT_SOUTH", "x": 45.0, "y": 19.1, "width": 2.8},
     {"id": "EXIT_EAST", "x": 89.8, "y": 22.0, "width": 2.4}
   ],
