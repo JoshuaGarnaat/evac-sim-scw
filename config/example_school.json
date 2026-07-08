@@ -15,11 +15,11 @@
     "kind": "classroom", "floors": [0, 1, 2], "count_per_side": 5,
     "start_x": 0.0, "room_width": 7.3, "room_depth": 6.7, "gap": 0.0,
     "south_y": 14.4, "north_y": 25.5,
-    "skip_indices": {"south": [], "north": [1,2,3,4]}
+    "skip_indices": {"south": [], "north": [0,1,2,3]}
   },
 {
     "kind": "classroom", "floors": [0, 1, 2], "count_per_side": 3,
-    "start_x": 11.05, "room_width": 7.3, "room_depth": 6.7, "gap": 0.0,
+    "start_x": 3.3, "room_width": 7.3, "room_depth": 6.7, "gap": 0.0,
     "south_y": 14.4, "north_y": 25.5,
     "skip_indices": {"south": [0,1,2], "north": []}
   }],
@@ -31,10 +31,11 @@
   "corridors": [
     {"id": "C0", "floor": 0, "x": 0.0, "y": 21, "width": 36.5, "depth": 4.4},
     {"id": "C1", "floor": 1, "x": 0.0, "y": 21, "width": 36.5, "depth": 4.4},
-    {"id": "C2", "floor": 2, "x": 0.0, "y": 21, "width": 36.5, "depth": 4.4}
+    {"id": "C2", "floor": 2, "x": 0.0, "y": 21, "width": 36.5, "depth": 4.4},
+    {"id": "D2", "floor": 2, "x": 0.0, "y": 25.4, "width": 3.3, "depth": 11.1}
   ],
   "stairs": [
-    {"id": "S_WEST", "x": 11.25, "y": 14.4, "width": 2.4, "enclosure_width": 6.4, "depth": 7.8, "floors": [0, 1, 2], "path_length": 16.0, "vertical_rise": 3.6, "capacity_per_m2": 2.0}
+    {"id": "S_WEST", "x": 27.6, "y": 14.4, "width": 2.4, "enclosure_width": 4.8, "depth": 7.8, "floors": [0, 1, 2], "path_length": 16.0, "vertical_rise": 3.6, "capacity_per_m2": 2.0}
   ],
   "exits": [
     {"id": "EXIT_WEST", "x": 0.2, "y": 24.0, "width": 2.4},
