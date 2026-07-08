@@ -24,9 +24,9 @@
     "skip_indices": {"south": [], "north": [0,1,2]}
   }],
   "rooms": [
-    {"id": "SR_WEST_F0", "kind": "stairwell", "floor": 0, "x": 6.5, "y": 21.1, "width": 7.5, "depth": -7.8},
-    {"id": "SR_WEST_F1", "kind": "stairwell", "floor": 1, "x": 6.5, "y": 21.1, "width": 7.5, "depth": -7.8},
-    {"id": "SR_WEST_F2", "kind": "stairwell", "floor": 2, "x": 6.5, "y": 21.1, "width": 7.5, "depth": -7.8}
+    {"id": "SR_WEST_F0", "kind": "stairwell", "floor": 0, "x": 6.5, "y": 21.1, "width": 7.5, "depth": 7.8},
+    {"id": "SR_WEST_F1", "kind": "stairwell", "floor": 1, "x": 6.5, "y": 21.1, "width": 7.5, "depth": 7.8},
+    {"id": "SR_WEST_F2", "kind": "stairwell", "floor": 2, "x": 6.5, "y": 21.1, "width": 7.5, "depth": 7.8}
   ],
   "corridors": [
     {"id": "C0", "floor": 0, "x": 0.0, "y": 21, "width": 36.5, "depth": 4.4},
@@ -34,7 +34,7 @@
     {"id": "C2", "floor": 2, "x": 0.0, "y": 21, "width": 36.5, "depth": 4.4}
   ],
   "stairs": [
-    {"id": "S_WEST", "x": 11.25, "y": 17.2, "width": 2.4, "enclosure_width": 6.4, "depth": -7.8, "floors": [0, 1, 2], "path_length": 16.0, "vertical_rise": 3.6, "capacity_per_m2": 2.0}
+    {"id": "S_WEST", "x": 11.25, "y": 17.2, "width": 2.4, "enclosure_width": 6.4, "depth": 7.8, "floors": [0, 1, 2], "path_length": 16.0, "vertical_rise": 3.6, "capacity_per_m2": 2.0}
   ],
   "exits": [
     {"id": "EXIT_WEST", "x": 0.2, "y": 24.0, "width": 2.4},
