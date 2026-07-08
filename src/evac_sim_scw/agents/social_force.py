@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import math
+from types import SimpleNamespace
+
+from ..geometry.layout_schema import rotate
 
 #
 # Force models
@@ -56,3 +59,13 @@ def rectangular_wall_force(agent, bounds: tuple[float, float, float, float], ope
     if not is_open("north", agent.x):
         fy -= strength * math.exp((agent.radius - (ymax - agent.y)) / decay)
     return fx, fy
+
+
+def oriented_rectangular_wall_force(agent, rect, openings, config: dict) -> tuple[float, float]:
+    """Evaluate the existing wall model in an oriented rectangle's local frame."""
+    x, y = rect.world_to_local(agent.x, agent.y)
+    local_agent = SimpleNamespace(x=x, y=y, radius=agent.radius)
+    fx, fy = rectangular_wall_force(
+        local_agent, (0.0, rect.width, 0.0, rect.depth), openings, config,
+    )
+    return rotate(fx, fy, rect.rotation)

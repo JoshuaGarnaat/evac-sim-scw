@@ -11,7 +11,7 @@ from ..agents.behavior import classify_state, density_speed_factor
 from ..agents.collision_avoidance import separate
 from ..agents.population import create_population
 from ..agents.route_choice import choose_route
-from ..agents.social_force import movement_force, rectangular_wall_force
+from ..agents.social_force import movement_force, oriented_rectangular_wall_force, rectangular_wall_force
 from ..geometry.building import Building
 from ..geometry.spatial_index import SpatialGrid
 from ..replay.writer import ReplayWriter
@@ -126,7 +126,7 @@ class SimulationEngine:
             cx, cy = separate(agent, neighbors)
             agent.x += cx
             agent.y += cy
-            self._constrain(agent)
+            self._constrain(agent, old_x, old_y)
             if agent.on_stair:
                 self._update_stair_elevation(agent)
             distance = math.hypot(agent.x - old_x, agent.y - old_y)
@@ -150,12 +150,11 @@ class SimulationEngine:
                 return
         if agent.phase == "room" and reached(agent, agent.target_x, agent.target_y, tolerance):
             if agent.id not in self.door_seen:
-                self.metrics.record_door(self.time, f"D_{agent.classroom_id}", agent.id)
+                self.metrics.record_door(self.time, self.building.room_door(agent.classroom_id).id, agent.id)
                 self.door_seen.add(agent.id)
             agent.phase = "door_transition"
-            nav = self.building.raw["navigation"]
             door = self.building.room_door(agent.classroom_id)
-            agent.target_y = nav["corridor_min_y"] + 0.45 if door.y < nav["corridor_center_y"] else nav["corridor_max_y"] - 0.45
+            agent.target_x, agent.target_y = door.transition_target
         elif agent.phase == "door_transition" and reached(agent, agent.target_x, agent.target_y, tolerance):
             agent.phase = "corridor"
         if agent.phase != "corridor":
@@ -164,13 +163,15 @@ class SimulationEngine:
             self._maybe_reroute(agent, queues)
         if agent.floor > 0:
             stair = self._stair(agent.selected_stair)
-            entry_x, entry_y = self._stair_entry(stair)
+            local_x, local_y = stair.world_to_local(agent.x, agent.y)
             lateral_limit = max(0.0, stair.width / 2 - agent.radius)
-            agent.target_x = min(max(agent.x, entry_x - lateral_limit), entry_x + lateral_limit)
-            agent.target_y = entry_y
+            target_local_x = min(max(local_x, -stair.enclosure_width * 0.23 - lateral_limit), -stair.enclosure_width * 0.23 + lateral_limit)
+            destination = stair.local_to_world(target_local_x, stair.entry_offset)
+            final_leg = self._follow_corridor_path(agent, destination)
             crossed_entry = (
-                agent.y >= entry_y - 1e-9
-                and entry_x - lateral_limit <= agent.x <= entry_x + lateral_limit
+                final_leg
+                and local_y >= stair.entry_offset - 1e-9
+                and abs(local_x + stair.enclosure_width * 0.23) <= lateral_limit
             )
             if crossed_entry:
                 agent.state = "on_stairs"
@@ -178,13 +179,13 @@ class SimulationEngine:
                 agent.stair_from_floor = agent.floor
                 agent.stair_progress = 0.0
                 agent.phase = "stair_first_flight"
-                agent.target_x = self._stair_flight_target_x(agent, self._stair_left_x(stair), stair)
-                agent.target_y = self._stair_landing_y(stair)
+                target_x = self._stair_flight_target_x(agent, -stair.enclosure_width * 0.23, stair)
+                agent.target_x, agent.target_y = stair.local_to_world(target_x, self._stair_landing_y(stair))
                 self.metrics.record_stair(self.time, stair.id, agent.floor, "enter", agent.id)
         else:
             exit_door = self._exit(agent.selected_exit)
-            agent.target_x, agent.target_y = self._exit_target(agent, exit_door)
-            if self._reached_exit(agent, exit_door, tolerance):
+            final_leg = self._follow_corridor_path(agent, self._exit_target(agent, exit_door))
+            if final_leg and self._reached_exit(agent, exit_door, tolerance):
                 agent.state = "exited"
                 agent.evacuation_time = self.time
                 agent.vx = agent.vy = 0.0
@@ -210,59 +211,81 @@ class SimulationEngine:
                 agent.selected_exit, agent.selected_stair = old_route.exit_id, old_route.stair_id
                 agent.reroutes += 1
                 agent.state = "rerouting"
+                agent.meta.pop("corridor_path", None)
+                agent.meta.pop("corridor_path_key", None)
 
-    def _constrain(self, agent) -> None:
+    def _follow_corridor_path(self, agent, destination: tuple[float, float]) -> bool:
+        """Set the next target and report whether it is the final destination."""
+        tolerance = self.config["simulation"]["waypoint_tolerance"]
+        grid = self.building.navigation_grid_size
+        key = (agent.floor, round(destination[0] / grid), round(destination[1] / grid))
+        if agent.meta.get("corridor_path_key") != key:
+            agent.meta["corridor_path_key"] = key
+            agent.meta["corridor_path"] = self.building.corridor_path(
+                agent.floor, (agent.x, agent.y), destination,
+            )
+        path = agent.meta["corridor_path"]
+        while len(path) > 1 and reached(agent, *path[0], tolerance):
+            path.pop(0)
+        agent.target_x, agent.target_y = path[0]
+        return len(path) == 1
+
+    def _constrain(self, agent, old_x: float | None = None, old_y: float | None = None) -> None:
         agent.x = min(max(agent.x, 0.1), self.building.width - 0.1)
         agent.y = min(max(agent.y, 0.1), self.building.depth - 0.1)
         if agent.on_stair:
             stair = self._stair(agent.selected_stair)
             half_width = stair.width / 2
-            entry_y = self._stair_entry(stair)[1]
+            local_x, local_y = stair.world_to_local(agent.x, agent.y)
+            entry_y = stair.entry_offset
             landing_y = self._stair_landing_y(stair)
             if agent.phase == "stair_landing":
-                agent.x = min(
-                    max(agent.x, self._stair_left_x(stair) - half_width),
-                    self._stair_right_x(stair) + half_width,
-                )
-                agent.y = min(max(agent.y, landing_y), landing_y + stair.width)
+                local_x = min(max(local_x, -stair.enclosure_width * 0.23 - half_width), stair.enclosure_width * 0.23 + half_width)
+                local_y = min(max(local_y, landing_y), landing_y + stair.width)
             else:
-                centre_x = self._stair_left_x(stair) if agent.phase == "stair_first_flight" else self._stair_right_x(stair)
-                agent.x = min(max(agent.x, centre_x - half_width), centre_x + half_width)
-                agent.y = min(max(agent.y, entry_y), landing_y)
+                centre_x = -stair.enclosure_width * 0.23 if agent.phase == "stair_first_flight" else stair.enclosure_width * 0.23
+                local_x = min(max(local_x, centre_x - half_width), centre_x + half_width)
+                local_y = min(max(local_y, entry_y), landing_y)
+            agent.x, agent.y = stair.local_to_world(local_x, local_y)
             return
         if agent.phase == "corridor":
+            if self.building.schema_version == 2:
+                corridors = self.building.corridors_on(agent.floor)
+                margin = agent.radius
+                inside = lambda x, y: self.building.corridor_contains(agent.floor, x, y, margin)
+                if corridors and not inside(agent.x, agent.y):
+                    if old_x is not None and old_y is not None and inside(old_x, old_y):
+                        agent.x, agent.y = self.building.project_to_corridor(
+                            agent.floor, (agent.x, agent.y), (old_x, old_y), margin,
+                        )
+                    else:
+                        candidates = [c.clamp(agent.x, agent.y, margin) for c in corridors]
+                        valid = [point for point in candidates if inside(*point)]
+                        agent.x, agent.y = min(
+                            valid or candidates,
+                            key=lambda point: math.hypot(point[0] - agent.x, point[1] - agent.y),
+                        )
+                return
             nav = self.building.raw["navigation"]
             agent.y = min(max(agent.y, nav["corridor_min_y"]), nav["corridor_max_y"])
 
     def _wall_force(self, agent) -> tuple[float, float]:
         social = self.config["social_force"]
         if agent.on_stair:
-            stair = self._stair(agent.selected_stair)
-            half_width = stair.width / 2
-            left_x, right_x = self._stair_left_x(stair), self._stair_right_x(stair)
-            entry_y, landing_y = self._stair_entry(stair)[1], self._stair_landing_y(stair)
-            if agent.phase == "stair_landing":
-                return rectangular_wall_force(
-                    agent,
-                    (left_x - half_width, right_x + half_width, landing_y, landing_y + stair.width),
-                    [("south", left_x, stair.width), ("south", right_x, stair.width)],
-                    social,
-                )
-            centre_x = left_x if agent.phase == "stair_first_flight" else right_x
-            return rectangular_wall_force(
-                agent,
-                (centre_x - half_width, centre_x + half_width, entry_y, landing_y),
-                [("south", centre_x, stair.width), ("north", centre_x, stair.width)],
-                social,
-            )
+            # Stair agents are explicitly constrained in the stair's rotated local frame.
+            return 0.0, 0.0
         if agent.phase == "room":
-            room = next(r for r in self.building.rooms if r.id == agent.classroom_id)
+            room = self.building.room(agent.classroom_id)
             door = self.building.room_door(agent.classroom_id)
-            side = "north" if door.y > room.center[1] else "south"
-            return rectangular_wall_force(
-                agent, (room.x, room.x + room.width, room.y, room.y + room.depth),
-                [(side, door.x, door.width)], social,
-            )
+            side = door.side or ("north" if door.y > room.center[1] else "south")
+            local_x, local_y = room.world_to_local(door.x, door.y)
+            coordinate = local_x if side in {"north", "south"} else local_y
+            return oriented_rectangular_wall_force(agent, room, [(side, coordinate, door.width)], social)
+        if self.building.schema_version == 2:
+            # Corridor unions may be L-, T-, or cross-shaped. Position constraints keep
+            # agents in their union; applying four walls per component would create
+            # artificial barriers where components overlap.
+            return 0.0, 0.0
         nav = self.building.raw["navigation"]
         openings = [("north", stair.x, stair.enclosure_width) for stair in self.building.stairs]
         if agent.floor == 0:
@@ -279,49 +302,40 @@ class SimulationEngine:
         )
 
     def _stair_entry(self, stair) -> tuple[float, float]:
-        return (
-            stair.x - stair.enclosure_width * 0.23,
-            self.building.raw["navigation"]["corridor_max_y"],
-        )
-
-    @staticmethod
-    def _stair_left_x(stair) -> float:
-        return stair.x - stair.enclosure_width * 0.23
-
-    @staticmethod
-    def _stair_right_x(stair) -> float:
-        return stair.x + stair.enclosure_width * 0.23
+        return stair.local_to_world(-stair.enclosure_width * 0.23, stair.entry_offset)
 
     def _stair_landing_y(self, stair) -> float:
-        return self._stair_entry(stair)[1] + min(5.9, stair.depth - 1.9)
+        return stair.entry_offset + min(5.9, stair.depth - 1.9)
 
     @staticmethod
     def _stair_flight_target_x(agent, centre_x: float, stair) -> float:
         usable_half_width = max(0.0, stair.width / 2 - agent.radius)
-        return min(max(agent.x, centre_x - usable_half_width), centre_x + usable_half_width)
+        local_x, _ = stair.world_to_local(agent.x, agent.y)
+        return min(max(local_x, centre_x - usable_half_width), centre_x + usable_half_width)
 
     def _advance_stair_phase(self, agent) -> None:
         stair = self._stair(agent.selected_stair)
-        entry_y = self._stair_entry(stair)[1]
+        entry_y = stair.entry_offset
         landing_y = self._stair_landing_y(stair)
-        left_x, right_x = self._stair_left_x(stair), self._stair_right_x(stair)
+        left_x, right_x = -stair.enclosure_width * 0.23, stair.enclosure_width * 0.23
+        local_x, local_y = stair.world_to_local(agent.x, agent.y)
         tolerance = min(0.18, self.config["simulation"]["waypoint_tolerance"])
         if agent.phase == "stair_first_flight":
-            agent.target_x = self._stair_flight_target_x(agent, left_x, stair)
-            agent.target_y = landing_y
-            if agent.y >= landing_y - 1e-9:
+            target_x = self._stair_flight_target_x(agent, left_x, stair)
+            agent.target_x, agent.target_y = stair.local_to_world(target_x, landing_y)
+            if local_y >= landing_y - 1e-9:
                 agent.phase = "stair_landing"
-                agent.target_x, agent.target_y = right_x, landing_y
+                agent.target_x, agent.target_y = stair.local_to_world(right_x, landing_y)
         elif agent.phase == "stair_landing":
-            agent.target_x, agent.target_y = right_x, landing_y
-            if agent.x >= right_x - tolerance and agent.y <= landing_y + 0.05:
+            agent.target_x, agent.target_y = stair.local_to_world(right_x, landing_y)
+            if local_x >= right_x - tolerance and local_y <= landing_y + 0.05:
                 agent.phase = "stair_second_flight"
-                agent.target_x = self._stair_flight_target_x(agent, right_x, stair)
-                agent.target_y = entry_y
+                target_x = self._stair_flight_target_x(agent, right_x, stair)
+                agent.target_x, agent.target_y = stair.local_to_world(target_x, entry_y)
         else:
-            agent.target_x = self._stair_flight_target_x(agent, right_x, stair)
-            agent.target_y = entry_y
-            if agent.y <= entry_y + 0.05:
+            target_x = self._stair_flight_target_x(agent, right_x, stair)
+            agent.target_x, agent.target_y = stair.local_to_world(target_x, entry_y)
+            if local_y <= entry_y + 0.05:
                 agent.floor = agent.stair_from_floor - 1
                 agent.z = agent.floor * self.building.floor_height
                 agent.on_stair = False
@@ -332,22 +346,23 @@ class SimulationEngine:
 
     def _update_stair_elevation(self, agent) -> None:
         stair = self._stair(agent.selected_stair)
-        entry_y = self._stair_entry(stair)[1]
+        entry_y = stair.entry_offset
         landing_y = self._stair_landing_y(stair)
         run = max(landing_y - entry_y, 0.01)
+        local_x, local_y = stair.world_to_local(agent.x, agent.y)
         top_z = agent.stair_from_floor * self.building.floor_height
         # Reserve 40/20/40 percent of progress for the two flights and landing.
         if agent.phase == "stair_first_flight":
-            fraction = min(max((agent.y - entry_y) / run, 0.0), 1.0)
+            fraction = min(max((local_y - entry_y) / run, 0.0), 1.0)
             agent.stair_progress = 0.4 * fraction
             agent.z = top_z - self.building.floor_height * 0.5 * fraction
         elif agent.phase == "stair_landing":
-            width = max(self._stair_right_x(stair) - self._stair_left_x(stair), 0.01)
-            fraction = min(max((agent.x - self._stair_left_x(stair)) / width, 0.0), 1.0)
+            width = max(stair.enclosure_width * 0.46, 0.01)
+            fraction = min(max((local_x + stair.enclosure_width * 0.23) / width, 0.0), 1.0)
             agent.stair_progress = 0.4 + 0.2 * fraction
             agent.z = top_z - self.building.floor_height * 0.5
         else:
-            fraction = min(max((landing_y - agent.y) / run, 0.0), 1.0)
+            fraction = min(max((landing_y - local_y) / run, 0.0), 1.0)
             agent.stair_progress = 0.6 + 0.4 * fraction
             agent.z = top_z - self.building.floor_height * (0.5 + 0.5 * fraction)
 
@@ -356,14 +371,15 @@ class SimulationEngine:
         # Stable hashing distributes agents across the opening without adding RNG state.
         unit = ((agent.id * 2654435761 + 1013904223) % 10007) / 10006
         offset = (unit - 0.5) * usable_width
-        if exit_door.x < 1.0 or exit_door.x > self.building.width - 1.0:
-            return exit_door.x, exit_door.y + offset
-        return exit_door.x + offset, exit_door.y
+        angle = math.radians(exit_door.rotation)
+        return exit_door.x + math.cos(angle) * offset, exit_door.y + math.sin(angle) * offset
 
     def _reached_exit(self, agent, exit_door, tolerance: float) -> bool:
-        if exit_door.x < 1.0 or exit_door.x > self.building.width - 1.0:
-            return abs(agent.x - exit_door.x) <= tolerance and abs(agent.y - exit_door.y) <= exit_door.width / 2
-        return abs(agent.y - exit_door.y) <= tolerance and abs(agent.x - exit_door.x) <= exit_door.width / 2
+        angle = math.radians(-exit_door.rotation)
+        dx, dy = agent.x - exit_door.x, agent.y - exit_door.y
+        along = dx * math.cos(angle) - dy * math.sin(angle)
+        normal = dx * math.sin(angle) + dy * math.cos(angle)
+        return abs(normal) <= tolerance and abs(along) <= exit_door.width / 2
 
     def _stair_counts(self):
         occupancy = Counter(a.selected_stair for a in self.agents if a.on_stair)

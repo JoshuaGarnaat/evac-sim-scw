@@ -1,0 +1,64 @@
+{
+  "schema_version": 2,
+  "id": "irregular_school",
+  "name": "Irregular school with a rotated east wing",
+  "synthetic": true,
+  "units": "meters",
+  "dimensions": {"width": 72.0, "depth": 52.0, "floor_height": 3.6, "slab_thickness": 0.22},
+  "floors": [
+    {"level": 0, "name": "ground_floor", "elevation": 0.0},
+    {"level": 1, "name": "first_floor", "elevation": 3.6},
+    {"level": 2, "name": "second_floor", "elevation": 7.2}
+  ],
+  "defaults": {"classroom_door_width": 1.1, "wall_height": 2.8, "wall_thickness": 0.14},
+  "sections": [
+    {
+      "id": "main",
+      "at": [2.0, 9.0],
+      "rotation": 0,
+      "floors": [0, 1, 2],
+      "corridors": [
+        {"id": "main_corridor", "at": [0, 7], "size": [34, 4]}
+      ],
+      "rooms": [
+        {"id": "M01", "kind": "classroom", "at": [1, 0], "size": [7, 7]},
+        {"id": "M02", "kind": "classroom", "at": [9, 0], "size": [7, 7]},
+        {"id": "M03", "kind": "classroom", "at": [17, 11], "size": [7, 7]}
+      ],
+      "doors": [
+        {"id": "D_M01", "room": "M01", "wall": "north", "offset": 3.5},
+        {"id": "D_M02", "room": "M02", "wall": "north", "offset": 3.5},
+        {"id": "D_M03", "room": "M03", "wall": "south", "offset": 3.5}
+      ],
+      "exits": [
+        {"id": "EXIT_WEST", "at": [0, 9], "width": 2.4, "rotation": 90}
+      ]
+    },
+    {
+      "id": "angled_east",
+      "at": [36.0, 19.0],
+      "rotation": 32,
+      "floors": [0, 1, 2],
+      "corridors": [
+        {"id": "east_corridor", "at": [-3, -2.1], "size": [30, 4.2]}
+      ],
+      "rooms": [
+        {"id": "E01", "kind": "classroom", "at": [2, 2], "size": [7, 7]},
+        {"id": "E02", "kind": "classroom", "at": [10, 2], "size": [7, 7]},
+        {"id": "E03", "kind": "classroom", "at": [18, -9], "size": [7, 7]}
+      ],
+      "doors": [
+        {"id": "D_E01", "room": "E01", "wall": "south", "offset": 3.5},
+        {"id": "D_E02", "room": "E02", "wall": "south", "offset": 3.5},
+        {"id": "D_E03", "room": "E03", "wall": "north", "offset": 3.5}
+      ],
+      "stairs": [
+        {"id": "S_EAST", "at": [24, 1.8], "width": 2.2, "enclosure_width": 6, "depth": 8.0,
+         "floors": [0, 1, 2], "path_length": 16.0, "capacity_per_m2": 2.0}
+      ],
+      "exits": [
+        {"id": "EXIT_EAST", "at": [27, 0], "width": 2.4, "rotation": 90}
+      ]
+    }
+  ]
+}

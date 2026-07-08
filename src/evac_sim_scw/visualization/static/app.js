@@ -66,12 +66,31 @@ function updateViewport() {
 
 async function startViewer() {
   const { metadata, frames } = await loadReplay();
-  playback.duration = frames.at(-1).t;
+  const isFloorplanPreview = metadata.mode === 'floorplan';
+  playback.duration = Math.max(frames.at(-1).t, 1);
+  playback.playing = !isFloorplanPreview;
+
+  elements.floor.replaceChildren(new Option('All floors', 'all'));
+  metadata.building.floors.forEach(floor => {
+    const label = floor.name
+      ? floor.name.replaceAll('_', ' ')
+      : `Floor ${floor.level}`;
+    elements.floor.add(new Option(label, floor.level));
+  });
 
   const floorGroups = renderBuilding(scene, metadata.building);
   const heatmap = createHeatmap(scene, metadata.building);
-  const agents = createAgentMesh(metadata.population);
+  const agents = createAgentMesh(Math.max(metadata.population, 1));
+  agents.visible = metadata.population > 0;
   scene.add(agents);
+
+  if (isFloorplanPreview) {
+    document.title = 'Floorplan preview';
+    document.querySelector('.brand strong').textContent = 'Floorplan preview';
+    elements.play.hidden = true;
+    elements.speed.closest('.field').hidden = true;
+    elements.timeline.closest('.timeline-field').hidden = true;
+  }
 
   bindControls(floorGroups, heatmap);
   elements.loading.remove();
@@ -213,7 +232,7 @@ function updateHud(evacuated, population) {
   elements.timer.textContent = formatTime(playback.currentTime);
   elements.evacuated.textContent = evacuated.toLocaleString();
   elements.remaining.textContent = (population - evacuated).toLocaleString();
-  elements.progress.style.width = `${100 * evacuated / population}%`;
+  elements.progress.style.width = `${population ? 100 * evacuated / population : 0}%`;
   elements.timeline.value = 1000 * playback.currentTime / playback.duration;
 }
 

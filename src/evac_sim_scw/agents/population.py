@@ -29,12 +29,14 @@ def create_population(building, config: dict) -> list[Agent]:
         slot = i // len(rooms)
         columns = max(2, int((room.width - 1.0) / 0.75))
         row, column = divmod(slot, columns)
-        base_x = room.x + 0.7 + column * 0.75
-        base_y = room.y + 0.7 + row * 0.72
-        if base_y > room.y + room.depth - 0.7:
-            base_y = room.y + 0.7 + (slot % max(1, int((room.depth - 1.4) / 0.72))) * 0.72
-        x = base_x + rng.uniform(-0.08, 0.08)
-        y = base_y + rng.uniform(-0.08, 0.08)
+        local_x = 0.7 + column * 0.75
+        local_y = 0.7 + row * 0.72
+        if local_y > room.depth - 0.7:
+            local_y = 0.7 + (slot % max(1, int((room.depth - 1.4) / 0.72))) * 0.72
+        x, y = room.local_to_world(
+            local_x + rng.uniform(-0.08, 0.08),
+            local_y + rng.uniform(-0.08, 0.08),
+        )
         agents.append(Agent(
             id=i, age=int(ages[i]), classroom_id=room.id, group_id=room.id,
             floor=room.floor, x=x, y=y, z=room.floor * building.floor_height,

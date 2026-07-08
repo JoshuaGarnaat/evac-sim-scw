@@ -36,21 +36,20 @@ def parser() -> argparse.ArgumentParser:
     replay.add_argument("--port", type=int, default=8765)
     replay.add_argument("--no-browser", action="store_true")
 
-    analyze = commands.add_parser("analyze", help="Generate charts from simulation results")
-    analyze.add_argument("result", metavar="RESULT_DIR", help="Result directory")
+    view = commands.add_parser("view-floorplan", help="Open a floorplan in the 3D viewer without running a simulation")
+    view.add_argument("floorplan", metavar="FLOORPLAN", help="School building floorplan JSON file")
+    view.add_argument("--host", default="127.0.0.1")
+    view.add_argument("--port", type=int, default=8765)
+    view.add_argument("--no-browser", action="store_true")
+
+    validate = commands.add_parser("validate-floorplan", help="Validate and summarize a floorplan JSON file")
+    validate.add_argument("floorplan", metavar="FLOORPLAN", help="Floorplan JSON file")
     return result
 
 
 def main(argv: list[str] | None = None) -> None:
     args = parser().parse_args(argv)
     configure_logging(args.verbose)
-    if args.command == "analyze":
-        from .analysis.charts import generate_charts
-
-        result = _latest(args.result)
-        charts = generate_charts(result)
-        logging.info("Charts written to %s", charts)
-        return
     if args.command == "run":
         from .analysis.charts import generate_charts
         from .config_loader import load_config
@@ -66,4 +65,9 @@ def main(argv: list[str] | None = None) -> None:
         if replay.is_dir():
             replay /= "replay.jsonl"
         serve_replay(replay, args.host, args.port, not args.no_browser)
+        return
+    if args.command == "view-floorplan":
+        from .visualization.server import serve_floorplan
+
+        serve_floorplan(args.floorplan, args.host, args.port, not args.no_browser)
         return

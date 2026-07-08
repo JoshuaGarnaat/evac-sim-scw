@@ -8,7 +8,9 @@ export async function loadReplay() {
   ]);
 
   if (!metadataResponse.ok || !replayResponse.ok) {
-    throw new Error('Replay data could not be loaded');
+    throw new Error(
+      `Viewer data could not be loaded (metadata HTTP ${metadataResponse.status}, replay HTTP ${replayResponse.status})`,
+    );
   }
 
   const metadata = await metadataResponse.json();
