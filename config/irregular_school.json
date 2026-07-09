@@ -83,7 +83,7 @@
          "floors": [0, 1, 2], "path_length": 16.0, "capacity_per_m2": 2.0}
       ],
       "exits": [
-        {"id": "EXIT_EAST", "at": [27, 0], "width": 2.4, "rotation": 90}
+        {"id": "EXIT_EAST", "at": [47, 22], "width": 2.4, "rotation": 90}
       ]
     }
   ]
