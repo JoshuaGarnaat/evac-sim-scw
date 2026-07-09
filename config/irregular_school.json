@@ -98,7 +98,7 @@
       ],
 
      "stairs": [
-        {"id": "S_EAST", "at": [11.3, 23.7], "width": 2.2, "enclosure_width": 6, "depth": 8.0,
+        {"id": "S_EAST", "at": [11.3, 23.7], "width": 1.7, "enclosure_width": 3.6, "depth": 7.1,
          "floors": [0, 1, 2], "path_length": 16.0, "capacity_per_m2": 2.0}
       ]
       }
