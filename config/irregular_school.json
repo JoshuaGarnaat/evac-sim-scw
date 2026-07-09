@@ -10,7 +10,7 @@
     {"level": 1, "name": "first_floor", "elevation": 3.6},
     {"level": 2, "name": "second_floor", "elevation": 7.2}
   ],
-  "defaults": {"classroom_door_width": 1.1, "wall_height": 2.8, "wall_thickness": 0.14},
+  "defaults": {"classroom_door_width": 0.9, "wall_height": 2.8, "wall_thickness": 0.14},
   "sections": [
     {
       "id": "main",
