@@ -1,10 +1,10 @@
 scenario:
-  name: smoke_test_100_students
+  name: smoke_test_100_irr_students
   type: fire_drill
   alarm: immediate
   random_seed: 20260705
 building:
-  layout_file: test_school.json
+  layout_file: scw.json
 population:
   count: 100
   age_min: 12

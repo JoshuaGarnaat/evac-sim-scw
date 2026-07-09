@@ -4,7 +4,7 @@ scenario:
   alarm: immediate
   random_seed: 20260705
 building:
-  layout_file: example_school.json
+  layout_file: scw.json
 population:
   count: 2000
   age_min: 12
