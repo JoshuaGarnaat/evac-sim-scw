@@ -181,7 +181,6 @@ class SimulationEngine:
                 agent.phase = "stair_first_flight"
                 target_x = self._stair_flight_target_x(agent, -stair.enclosure_width * 0.23, stair)
                 agent.target_x, agent.target_y = stair.local_to_world(target_x, self._stair_landing_y(stair))
-                self.metrics.record_stair(self.time, stair.id, agent.floor, "enter", agent.id)
         else:
             exit_door = self._exit(agent.selected_exit)
             final_leg = self._follow_corridor_path(agent, self._exit_target(agent, exit_door))
@@ -348,7 +347,6 @@ class SimulationEngine:
                 agent.phase = "corridor"
                 agent.state = "evacuating"
                 agent.stair_progress = 1.0
-                self.metrics.record_stair(self.time, stair.id, agent.floor, "leave", agent.id)
 
     def _update_stair_elevation(self, agent) -> None:
         stair = self._stair(agent.selected_stair)

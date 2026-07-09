@@ -12,7 +12,6 @@ class MetricsCollector:
         self.time_series: list[dict] = []
         self.exit_events: list[dict] = []
         self.door_events: list[dict] = []
-        self.stair_events: list[dict] = []
         self.hotspots: list[dict] = []
         self.step_times: list[float] = []
 
@@ -45,10 +44,7 @@ class MetricsCollector:
 
     def record_door(self, timestamp: float, door_id: str, agent_id: int) -> None:
         self.door_events.append({"time": round(timestamp, 3), "door_id": door_id, "agent_id": agent_id})
-
-    def record_stair(self, timestamp: float, stair_id: str, floor: int, event: str, agent_id: int) -> None:
-        self.stair_events.append({"time": round(timestamp, 3), "stair_id": stair_id, "floor": floor, "event": event, "agent_id": agent_id})
-
+        
     def export(self, output: Path, agents, replay_meta: dict, total_time: float) -> None:
         evac_times = [a.evacuation_time for a in agents if a.evacuation_time is not None]
         all_speeds = [a.speed_sum / max(a.speed_samples, 1) for a in agents]
@@ -71,7 +67,6 @@ class MetricsCollector:
         write_rows(output / "per_agent_metrics.csv", per_agent)
         write_rows(output / "time_series_metrics.csv", self.time_series)
         write_rows(output / "door_throughput.csv", _bin_events(self.door_events, "door_id"))
-        write_rows(output / "stair_throughput.csv", _bin_events(self.stair_events, "stair_id"))
         write_rows(output / "density_grid.csv", self.hotspots)
 
 

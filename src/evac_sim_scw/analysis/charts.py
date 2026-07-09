@@ -38,7 +38,6 @@ def generate_charts(result_dir: str | Path) -> Path:
         ("stair_speed_over_time", "Mean preferred stair speed of stair occupants", [("Stair speed", [float(r["mean_stair_speed"]) for r in rows])], "m/s"),
         ("density_over_time", "Density over time", [("Mean", [float(r["mean_density"]) for r in rows]), ("Maximum", [float(r["max_density"]) for r in rows])], "people/m²"),
         ("stair_density_over_time", "Stair density", [("Stairs", [float(r["stair_density"]) for r in rows])], "people/m²"),
-        ("stair_throughput", "Stair queue length", [("Queue", [float(r["stair_queue_length"]) for r in rows])], "People"),
         ("congestion_hotspots", "Peak density and pressure", [("Density", [float(r["max_density"]) for r in rows]), ("Pressure indicator", [float(r["peak_pressure"]) for r in rows])], "Indicator"),
     ]
     for name, title, series, ylabel in specs:
