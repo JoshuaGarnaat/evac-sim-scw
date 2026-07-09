@@ -17,10 +17,12 @@ from ..geometry.spatial_index import SpatialGrid
 from ..replay.writer import ReplayWriter
 from .congestion import crowd_pressure
 from .density import update_local_density
-from .evacuation import reached
 from .metrics import MetricsCollector
 
 
+def reached(agent, x: float, y: float, tolerance: float) -> bool:
+    return math.hypot(agent.x - x, agent.y - y) <= tolerance
+    
 class SimulationEngine:
     def __init__(self, config: dict):
         self.config = config

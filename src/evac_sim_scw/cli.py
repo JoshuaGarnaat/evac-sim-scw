@@ -4,7 +4,13 @@ import argparse
 import logging
 from pathlib import Path
 
-from .logging_setup import configure_logging
+
+def configure_logging(verbose: bool = False) -> None:
+    logging.basicConfig(
+        level=logging.DEBUG if verbose else logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(message)s",
+        datefmt="%H:%M:%S",
+    )
 
 
 def _latest(path_value: str) -> Path:
