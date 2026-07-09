@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 
-import { createHeatmap, renderBuilding } from './building_renderer.js';
+import { createHeatmap, createNavigationOverlay, renderBuilding } from './building_renderer.js';
 import { installFreeCamera } from './camera.js';
 import { framePair, loadReplay } from './replay.js';
 
@@ -16,6 +16,7 @@ const elements = {
   floor: document.querySelector('#floor'),
   fps: document.querySelector('#fps'),
   loading: document.querySelector('#loading'),
+  navigation: document.querySelector('#navigation'),
   overview: document.querySelector('#overview'),
   play: document.querySelector('#play'),
   progress: document.querySelector('#progress'),
@@ -80,6 +81,7 @@ async function startViewer() {
 
   const floorGroups = renderBuilding(scene, metadata.building);
   const heatmap = createHeatmap(scene, metadata.building);
+  const navigationOverlay = createNavigationOverlay(scene, metadata.building);
   const agents = createAgentMesh(Math.max(metadata.population, 1));
   agents.visible = metadata.population > 0;
   scene.add(agents);
@@ -92,7 +94,7 @@ async function startViewer() {
     elements.timeline.closest('.timeline-field').hidden = true;
   }
 
-  bindControls(floorGroups, heatmap);
+  bindControls(floorGroups, heatmap, navigationOverlay);
   elements.loading.remove();
   runAnimationLoop({ agents, frames, heatmap, metadata });
 }
@@ -106,7 +108,7 @@ function createAgentMesh(population) {
   return mesh;
 }
 
-function bindControls(floorGroups, heatmap) {
+function bindControls(floorGroups, heatmap, navigationOverlay) {
   elements.play.addEventListener('click', () => {
     playback.playing = !playback.playing;
     elements.play.textContent = playback.playing ? 'Pause' : 'Play';
@@ -122,6 +124,11 @@ function bindControls(floorGroups, heatmap) {
       group.visible = playback.floor === 'all' || Number(playback.floor) === floor;
     });
     heatmap.setFloor(playback.floor);
+    navigationOverlay.setFloor(playback.floor);
+  });
+
+  elements.navigation.addEventListener('change', event => {
+    navigationOverlay.setVisible(event.target.checked);
   });
 
   elements.overview.addEventListener('click', cameraControls.overview);

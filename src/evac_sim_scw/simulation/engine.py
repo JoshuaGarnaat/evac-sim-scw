@@ -254,10 +254,16 @@ class SimulationEngine:
                 margin = agent.radius
                 inside = lambda x, y: self.building.corridor_contains(agent.floor, x, y, margin)
                 if corridors and not inside(agent.x, agent.y):
-                    if old_x is not None and old_y is not None and inside(old_x, old_y):
-                        agent.x, agent.y = self.building.project_to_corridor(
-                            agent.floor, (agent.x, agent.y), (old_x, old_y), margin,
-                        )
+                    previous = (
+                        (old_x, old_y)
+                        if old_x is not None and old_y is not None
+                        else (agent.x, agent.y)
+                    )
+                    projected = self.building.project_to_corridor(
+                        agent.floor, (agent.x, agent.y), previous, margin,
+                    )
+                    if inside(*projected):
+                        agent.x, agent.y = projected
                     else:
                         candidates = [c.clamp(agent.x, agent.y, margin) for c in corridors]
                         valid = [point for point in candidates if inside(*point)]

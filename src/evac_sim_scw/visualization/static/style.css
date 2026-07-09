@@ -40,7 +40,7 @@ html, body {
 
 .brand { display: grid; gap: 0.15rem; }
 
-.brand__eyebrow, .metric span, .field span {
+.brand__eyebrow, .metric span, .field span, .toggle-field span {
   color: #91a9b7;
   font-size: 0.72rem;
   letter-spacing: 0.07em;
@@ -92,6 +92,14 @@ html, body {
 .button { padding: 0.35rem 0.8rem; cursor: pointer; }
 .button--primary { background: #1978a5; }
 .field { display: grid; gap: 0.25rem; }
+.toggle-field {
+  display: flex;
+  min-height: 2.25rem;
+  align-items: center;
+  gap: 0.45rem;
+}
+
+.toggle-field input { width: 1rem; height: 1rem; margin: 0; accent-color: #42e68b; }
 select { padding: 0.25rem 2rem 0.25rem 0.65rem; }
 .timeline-field { display: block; margin-top: 0.65rem; }
 #timeline { width: 100%; }

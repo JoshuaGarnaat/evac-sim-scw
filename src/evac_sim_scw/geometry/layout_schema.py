@@ -45,9 +45,10 @@ class Rect:
 
     def contains(self, x: float, y: float, margin: float = 0.0) -> bool:
         local_x, local_y = self.world_to_local(x, y)
+        epsilon = 1e-9
         return (
-            margin <= local_x <= self.width - margin
-            and margin <= local_y <= self.depth - margin
+            margin - epsilon <= local_x <= self.width - margin + epsilon
+            and margin - epsilon <= local_y <= self.depth - margin + epsilon
         )
 
     def clamp(self, x: float, y: float, margin: float = 0.0) -> tuple[float, float]:

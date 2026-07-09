@@ -32,6 +32,38 @@ function localPoint(item, x, y) {
   ];
 }
 
+function worldToLocal(item, x, y) {
+  const angle = -THREE.MathUtils.degToRad(item.rotation || 0);
+  const dx = x - item.x;
+  const dy = y - item.y;
+  return [
+    dx * Math.cos(angle) - dy * Math.sin(angle),
+    dx * Math.sin(angle) + dy * Math.cos(angle),
+  ];
+}
+
+function rectContains(item, x, y, margin = 0) {
+  const [localX, localY] = worldToLocal(item, x, y);
+  const epsilon = 1e-9;
+  return (
+    margin - epsilon <= localX
+    && localX <= item.width - margin + epsilon
+    && margin - epsilon <= localY
+    && localY <= item.depth - margin + epsilon
+  );
+}
+
+function navigationContains(building, floor, x, y, clearance) {
+  const inCorridor = building.corridors
+    .some(corridor => corridor.floor === floor && rectContains(corridor, x, y, clearance));
+  if (!inCorridor) return false;
+  return !building.rooms.some(room => (
+    room.floor === floor
+    && room.kind !== 'stairwell'
+    && rectContains(room, x, y, -clearance)
+  ));
+}
+
 function addLocalBox(parent, item, size, localPosition, elevation, color, opacity = 1) {
   const [x, z] = localPoint(item, localPosition[0], localPosition[1]);
   const mesh = addBox(parent, size, [x, elevation, z], color, opacity);
@@ -345,4 +377,54 @@ export function createHeatmap(scene, building) {
   }
 
   return { groups: floorMeshes, setFloor, update };
+}
+
+export function createNavigationOverlay(scene, building) {
+  const floorCount = Math.max(...building.floors.map(floor => floor.level)) + 1;
+  const gridSize = building.navigation?.grid_size || 0.5;
+  const clearance = building.navigation?.clearance || 0.32;
+  const material = new THREE.PointsMaterial({
+    color: 0xffd166,
+    depthWrite: false,
+    opacity: 0.72,
+    size: Math.max(0.06, gridSize * 0.18),
+    transparent: true,
+  });
+  const groups = [];
+  let activeFloor = 'all';
+
+  for (let floor = 0; floor < floorCount; floor += 1) {
+    const positions = [];
+    const elevation = floor * building.dimensions.floor_height + 0.13;
+    for (let x = gridSize / 2; x < building.dimensions.width; x += gridSize) {
+      for (let y = gridSize / 2; y < building.dimensions.depth; y += gridSize) {
+        if (!navigationContains(building, floor, x, y, clearance)) continue;
+        positions.push(x, elevation, y);
+      }
+    }
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+    const points = new THREE.Points(geometry, material);
+    points.visible = false;
+    scene.add(points);
+    groups.push(points);
+  }
+
+  function setFloor(selectedFloor) {
+    activeFloor = selectedFloor;
+    groups.forEach((points, floor) => {
+      points.visible = points.userData.enabled && (selectedFloor === 'all' || Number(selectedFloor) === floor);
+    });
+  }
+
+  function setVisible(visible) {
+    groups.forEach(points => {
+      points.userData.enabled = visible;
+    });
+    setFloor(activeFloor);
+  }
+
+  setVisible(false);
+  return { groups, setFloor, setVisible };
 }
