@@ -18,26 +18,36 @@
       "rotation": 0,
       "floors": [0, 1, 2],
       "corridors": [
-        {"id": "main_corridor", "at": [0, 7], "size": [34, 4]}
+        {"id": "main_corridor", "at": [0, 10], "size": [36.5, 4.4]}
       ],
       "rooms": [
-        {"id": "M01", "kind": "classroom", "at": [1, 0], "size": [7, 7]},
-        {"id": "M02", "kind": "classroom", "at": [9, 0], "size": [7, 7]},
-        {"id": "M03", "kind": "classroom", "at": [17, 11], "size": [7, 7]}
+        {"id": "M01", "kind": "classroom", "at": [0, 3.4], "size": [7.3, 6.7]},
+        {"id": "M02", "kind": "classroom", "at": [7.3, 3.4], "size": [7.3, 6.7]},
+        {"id": "M03", "kind": "classroom", "at": [14.6, 3.4], "size": [7.3, 6.7]},
+        {"id": "M04", "kind": "classroom", "at": [21.9, 3.4], "size": [7.3, 6.7]},
+        {"id": "M05", "kind": "classroom", "at": [29.2, 3.4], "size": [7.3, 6.7]},
+        {"id": "M06", "kind": "classroom", "at": [0, 14.3], "size": [7.3, 6.7]}
       ],
       "doors": [
         {"id": "D_M01", "room": "M01", "wall": "north", "offset": 3.5},
         {"id": "D_M02", "room": "M02", "wall": "north", "offset": 3.5},
-        {"id": "D_M03", "room": "M03", "wall": "south", "offset": 3.5}
+        {"id": "D_M03", "room": "M03", "wall": "north", "offset": 3.5},
+        {"id": "D_M04", "room": "M04", "wall": "north", "offset": 3.5},
+        {"id": "D_M05", "room": "M05", "wall": "north", "offset": 3.5},
+        {"id": "D_M06", "room": "M06", "wall": "south", "offset": 3.5}
+      ],
+      "stairs": [
+        {"id": "S_SOUTH", "at": [9.0, 14.0], "width": 1.4, "enclosure_width": 3, "depth": 7.1,
+         "floors": [0, 1, 2], "path_length": 16.0, "capacity_per_m2": 2.0}
       ],
       "exits": [
-        {"id": "EXIT_WEST", "at": [0, 9], "width": 2.4, "rotation": 90}
+        {"id": "EXIT_WEST", "at": [0, 12], "width": 2.4, "rotation": 90}
       ]
     },
     {
       "id": "angled_east",
       "at": [36.0, 19.0],
-      "rotation": 32,
+      "rotation": 90,
       "floors": [0, 1, 2],
       "corridors": [
         {"id": "east_corridor", "at": [-3, -2.1], "size": [30, 4.2]}
