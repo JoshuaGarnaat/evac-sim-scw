@@ -1,0 +1,104 @@
+{
+  "schema_version": 2,
+  "id": "irregular_school",
+  "name": "Irregular school with a rotated east wing",
+  "synthetic": true,
+  "units": "meters",
+  "dimensions": {"width": 72.0, "depth": 70.0, "floor_height": 3.6, "slab_thickness": 0.22},
+  "floors": [
+    {"level": 0, "name": "ground_floor", "elevation": 0.0},
+    {"level": 1, "name": "first_floor", "elevation": 3.6},
+    {"level": 2, "name": "second_floor", "elevation": 7.2}
+  ],
+  "defaults": {"classroom_door_width": 1.5, "wall_height": 2.8, "wall_thickness": 0.14},
+  "sections": [
+    {
+      "id": "main",
+      "at": [2.0, 9.0],
+      "rotation": 0,
+      "floors": [0, 1, 2],
+      "corridors": [
+        {"id": "main_corridor", "at": [10, 10], "size": [36.5, 4.4]}
+      ],
+      "rooms": [
+        {"id": "M01", "kind": "classroom", "at": [10, 3.4], "size": [7.3, 6.7]},
+        {"id": "M02", "kind": "classroom", "at": [17.3, 3.4], "size": [7.3, 6.7]},
+        {"id": "M03", "kind": "classroom", "at": [24.6, 3.4], "size": [7.3, 6.7]},
+        {"id": "M04", "kind": "classroom", "at": [31.9, 3.4], "size": [7.3, 6.7]},
+        {"id": "M05", "kind": "classroom", "at": [39.2, 3.4], "size": [7.3, 6.7]},
+        {"id": "M06", "kind": "classroom", "at": [39.2, 14.3], "size": [7.3, 6.7]},
+        {"id": "M07", "kind": "classroom", "at": [13.3, 14.3], "size": [7.3, 6.7]},
+        {"id": "M08", "kind": "classroom", "at": [20.6, 14.3], "size": [7.3, 6.7]}
+      ],
+      "doors": [
+        {"id": "D_M01", "room": "M01", "wall": "north", "offset": 3.5},
+        {"id": "D_M02", "room": "M02", "wall": "north", "offset": 3.5},
+        {"id": "D_M03", "room": "M03", "wall": "north", "offset": 3.5},
+        {"id": "D_M04", "room": "M04", "wall": "north", "offset": 3.5},
+        {"id": "D_M05", "room": "M05", "wall": "north", "offset": 3.5},
+        {"id": "D_M06", "room": "M06", "wall": "south", "offset": 3.5},
+        {"id": "D_M07", "room": "M07", "wall": "south", "offset": 3.5},
+        {"id": "D_M08", "room": "M08", "wall": "south", "offset": 3.5}
+      ],
+      "stairs": [
+        {"id": "S_SOUTH", "at": [37.2, 14.0], "width": 1.4, "enclosure_width": 3, "depth": 7.1,
+         "floors": [0, 1, 2], "path_length": 16.0, "capacity_per_m2": 2.0}
+      ],
+      "exits": [
+        {"id": "EXIT_WEST", "at": [10, 12], "width": 2.4, "rotation": 90}
+      ]
+    },
+    {
+      "id": "angled_east",
+      "at": [36.0, 19.0],
+      "rotation": 90,
+      "floors": [0],
+      "corridors": [
+        {"id": "east_corridor", "at": [4, -1.5], "size": [43.3, 2.8]}
+      ],
+      "rooms": [
+        {"id": "E02", "kind": "classroom", "at": [33.8, 1.3], "size": [6.7, 7.2]},
+        {"id": "E03", "kind": "classroom", "at": [27.1, 1.3], "size": [6.7,7.2]},
+        {"id": "E04", "kind": "classroom", "at": [20.4, 1.3], "size": [6.7, 7.2]},
+        {"id": "E05", "kind": "classroom", "at": [13.7, 1.3], "size": [6.7, 7.2]},
+        {"id": "E06", "kind": "classroom", "at": [40.5, -8.5], "size": [6.7, 7.2]},
+        {"id": "E07", "kind": "classroom", "at": [40.5, -8.5], "size": [6.7,7.2]},
+        {"id": "E08", "kind": "classroom", "at": [33.8, -8.5], "size": [6.7, 7.2]},
+        {"id": "E09", "kind": "classroom", "at": [27.1, -8.5], "size": [6.7,7.2]},
+        {"id": "E010", "kind": "classroom", "at": [20.4, -8.5], "size": [6.7, 7.2]},
+        {"id": "E011", "kind": "classroom", "at": [13.7, -8.5], "size": [6.7, 7.2]}
+      ],
+      "doors": [
+        {"id": "D_E02", "room": "E02", "wall": "south", "offset": 3.5},
+        {"id": "D_E03", "room": "E03", "wall": "south", "offset": 3.5},
+        {"id": "D_E04", "room": "E04", "wall": "south", "offset": 3.5},
+        {"id": "D_E05", "room": "E05", "wall": "south", "offset": 3.5},
+        {"id": "D_E06", "room": "E06", "wall": "north", "offset": 3.5},
+        {"id": "D_E07", "room": "E07", "wall": "north", "offset": 3.5},
+        {"id": "D_E08", "room": "E08", "wall": "north", "offset": 3.5},
+        {"id": "D_E09", "room": "E09", "wall": "north", "offset": 3.5},
+        {"id": "D_E010", "room": "E010", "wall": "north", "offset": 3.5},
+        {"id": "D_E011", "room": "E011", "wall": "north", "offset": 3.5}
+      ],
+     
+      "exits": [
+        {"id": "EXIT_EAST", "at": [47, 0], "width": 2.4, "rotation": 90}
+      ]
+    },
+  {
+      "id": "angled_west",
+      "at": [36.0, 19.0],
+      "rotation": 90,
+      "floors": [0,1,2],
+      "corridors": [
+        {"id": "east_corridor", "at": [4, 20.6], "size": [3.3, 2.2]},
+        {"id": "stair_corridor", "at": [7.0, 20.6], "size": [7.8, 3.3]}
+      ],
+
+     "stairs": [
+        {"id": "S_EAST", "at": [11.3, 23.7], "width": 1.7, "enclosure_width": 3.6, "depth": 7.1,
+         "floors": [0, 1, 2], "path_length": 16.0, "capacity_per_m2": 2.0}
+      ]
+      }
+  ]
+}

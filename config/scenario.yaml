@@ -7,6 +7,8 @@ building:
   layout_file: scw.json
 population:
   count: 891
+  age_min: 12
+  age_max: 19
   classroom_group_size_target: 27
 movement:
   walking_speed: {mean: 1.34, std: 0.18, min: 0.75, max: 1.85}
@@ -14,6 +16,7 @@ movement:
   body_radius: {mean: 0.25, std: 0.025, min: 0.19, max: 0.35}
   max_acceleration: {mean: 1.6, std: 0.25, min: 0.8, max: 2.4}
   personal_space: {mean: 0.15, std: 0.05, min: 0.8, max: 0.30}
+  maximum_speed_multiplier: 1.30
   stair_speed_multiplier: 0.55
 social_force:
   relaxation_time: 0.50
@@ -41,7 +44,7 @@ route_choice:
   stair_occupancy_queue_equivalent: 0.40
 simulation:
   dt: 0.10
-  max_time: 600.0
+  max_time: 200.0
   replay_sample_interval: 0.25
   metrics_sample_interval: 0.50
   neighbor_radius: 1.5
