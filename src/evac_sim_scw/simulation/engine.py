@@ -94,17 +94,78 @@ class SimulationEngine:
                 continue
             neighbor_ids = self.grid.neighbors(agent.floor, agent.x, agent.y)
             neighbors = [self.by_id[index] for index in neighbor_ids]
+            target_key = (
+                agent.floor, agent.phase,
+                round(agent.target_x, 2), round(agent.target_y, 2),
+            )
+            target_distance = math.hypot(
+                agent.target_x - agent.x, agent.target_y - agent.y,
+            )
+            if agent.meta.get("progress_target") != target_key:
+                agent.meta["progress_target"] = target_key
+                agent.meta["best_target_distance"] = target_distance
+                agent.meta["last_progress_time"] = self.time
+            elif target_distance < agent.meta.get("best_target_distance", math.inf) - 0.025:
+                agent.meta["best_target_distance"] = target_distance
+                agent.meta["last_progress_time"] = self.time
+            progress_stalled = (
+                agent.phase == "corridor"
+                and self.time - agent.meta.get("last_progress_time", self.time) > 2.5
+            )
+            near_exit = False
+            if agent.floor == 0 and agent.phase == "corridor":
+                exit_door = self._exit(agent.selected_exit)
+                near_exit = math.hypot(
+                    agent.x - exit_door.x, agent.y - exit_door.y,
+                ) <= max(2.0, exit_door.width)
             factor = density_speed_factor(agent.local_density, self.config)
+            if agent.on_stair:
+                factor = max(factor, 0.55)
+            elif progress_stalled or near_exit:
+                factor = max(factor, 0.55)
             desired = agent.preferred_speed * factor
             if agent.on_stair:
                 desired *= self.config["movement"]["stair_speed_multiplier"]
-            agent.ax, agent.ay = movement_force(agent, agent.target_x, agent.target_y, desired, neighbors, self.config["social_force"])
+            force_neighbors = neighbors
+            separation_neighbors = neighbors
+            if agent.on_stair:
+                same_stream = [
+                    other for other in neighbors
+                    if other.on_stair
+                    and other.selected_stair == agent.selected_stair
+                    and other.phase == agent.phase
+                ]
+                force_neighbors = []
+                separation_neighbors = same_stream
+            elif progress_stalled or near_exit:
+                force_neighbors = []
+            agent.ax, agent.ay = movement_force(
+                agent, agent.target_x, agent.target_y, desired,
+                force_neighbors, self.config["social_force"],
+            )
             stalled_for = self.time - agent.last_motion_time
             if agent.phase == "corridor" and stalled_for > 3.0 and agent.local_density < 1.5:
                 # Apply a bounded lateral nudge to break low-density force equilibria.
                 dx, dy = agent.target_x - agent.x, agent.target_y - agent.y
                 length = max(math.hypot(dx, dy), 0.01)
                 direction = -1.0 if agent.id % 2 else 1.0
+                if self.building.schema_version == 2:
+                    lateral_x, lateral_y = -dy / length, dx / length
+                    probe = max(agent.radius + 0.08, 0.25)
+                    left_open = self.building.corridor_contains(
+                        agent.floor,
+                        agent.x + lateral_x * probe,
+                        agent.y + lateral_y * probe,
+                        agent.radius,
+                    )
+                    right_open = self.building.corridor_contains(
+                        agent.floor,
+                        agent.x - lateral_x * probe,
+                        agent.y - lateral_y * probe,
+                        agent.radius,
+                    )
+                    if left_open != right_open:
+                        direction = 1.0 if left_open else -1.0
                 yield_force = min(1.2, 0.35 + 0.08 * stalled_for)
                 agent.ax += direction * -dy / length * yield_force
                 agent.ay += direction * dx / length * yield_force
@@ -122,10 +183,30 @@ class SimulationEngine:
             if speed > cap and speed > 0:
                 agent.vx *= cap / speed
                 agent.vy *= cap / speed
+            approach_direction = None
+            if near_exit:
+                dx = agent.target_x - agent.x
+                dy = agent.target_y - agent.y
+                length = max(math.hypot(dx, dy), 1e-6)
+                approach_direction = (dx / length, dy / length)
+                forward_speed = (
+                    agent.vx * approach_direction[0]
+                    + agent.vy * approach_direction[1]
+                )
+                if forward_speed < 0.0:
+                    agent.vx -= forward_speed * approach_direction[0]
+                    agent.vy -= forward_speed * approach_direction[1]
             old_x, old_y = agent.x, agent.y
             agent.x += agent.vx * dt
             agent.y += agent.vy * dt
-            cx, cy = separate(agent, neighbors)
+            cx, cy = separate(agent, separation_neighbors)
+            if approach_direction is not None:
+                forward_correction = (
+                    cx * approach_direction[0] + cy * approach_direction[1]
+                )
+                if forward_correction < 0.0:
+                    cx -= forward_correction * approach_direction[0]
+                    cy -= forward_correction * approach_direction[1]
             agent.x += cx
             agent.y += cy
             self._constrain(agent, old_x, old_y)
@@ -137,6 +218,11 @@ class SimulationEngine:
             agent.distance_walked += distance
             agent.speed_sum += agent.speed
             agent.speed_samples += 1
+            if agent.floor == 0 and agent.phase == "corridor":
+                exit_door = self._exit(agent.selected_exit)
+                if self._reached_exit(agent, exit_door, self.config["simulation"]["waypoint_tolerance"]):
+                    self._mark_exited(agent, exit_door)
+                    continue
             agent.pressure = crowd_pressure(agent, self.config)
             agent.state = classify_state(agent, self.config)
             if agent.state == "congested":
@@ -169,11 +255,12 @@ class SimulationEngine:
             lateral_limit = max(0.0, stair.width / 2 - agent.radius)
             target_local_x = min(max(local_x, -stair.enclosure_width * 0.23 - lateral_limit), -stair.enclosure_width * 0.23 + lateral_limit)
             destination = stair.local_to_world(target_local_x, stair.entry_offset)
-            final_leg = self._follow_corridor_path(agent, destination)
+            final_leg = self._follow_corridor_path(agent, destination, strict_end=True)
             crossed_entry = (
                 final_leg
                 and local_y >= stair.entry_offset - 1e-9
-                and abs(local_x + stair.enclosure_width * 0.23) <= lateral_limit
+                and abs(local_x + stair.enclosure_width * 0.23)
+                <= lateral_limit + tolerance
             )
             if crossed_entry:
                 agent.state = "on_stairs"
@@ -187,11 +274,16 @@ class SimulationEngine:
             exit_door = self._exit(agent.selected_exit)
             final_leg = self._follow_corridor_path(agent, self._exit_target(agent, exit_door))
             if final_leg and self._reached_exit(agent, exit_door, tolerance):
-                agent.state = "exited"
-                agent.evacuation_time = self.time
-                agent.vx = agent.vy = 0.0
-                self.evacuated += 1
-                self.metrics.record_exit(self.time, exit_door.id, agent.id)
+                self._mark_exited(agent, exit_door)
+
+    def _mark_exited(self, agent, exit_door) -> None:
+        if agent.state == "exited":
+            return
+        agent.state = "exited"
+        agent.evacuation_time = self.time
+        agent.vx = agent.vy = 0.0
+        self.evacuated += 1
+        self.metrics.record_exit(self.time, exit_door.id, agent.id)
 
     def _select_route(self, agent, queues: dict[str, int]) -> None:
         route = choose_route(agent, self.building, queues, self.config)
@@ -207,7 +299,7 @@ class SimulationEngine:
             current_exit = self._exit(old_exit)
             current_stair = self._stair(old_stair) if old_stair else None
             from ..geometry.nav_graph import route_cost
-            current_cost = route_cost(agent, current_exit, current_stair, queues, self.config)
+            current_cost = route_cost(agent, current_exit, current_stair, queues, self.config, self.building)
             if old_route.estimated_cost < current_cost * (1.0 - threshold):
                 agent.selected_exit, agent.selected_stair = old_route.exit_id, old_route.stair_id
                 agent.reroutes += 1
@@ -215,18 +307,60 @@ class SimulationEngine:
                 agent.meta.pop("corridor_path", None)
                 agent.meta.pop("corridor_path_key", None)
 
-    def _follow_corridor_path(self, agent, destination: tuple[float, float]) -> bool:
-        """Set the next target and report whether it is the final destination."""
+    def _follow_corridor_path(
+        self, agent, destination: tuple[float, float], strict_end: bool = False,
+    ) -> bool:
         tolerance = self.config["simulation"]["waypoint_tolerance"]
         grid = self.building.navigation_grid_size
-        key = (agent.floor, round(destination[0] / grid), round(destination[1] / grid))
+        key = (
+            agent.floor, strict_end,
+            round(destination[0] / grid), round(destination[1] / grid),
+        )
         if agent.meta.get("corridor_path_key") != key:
             agent.meta["corridor_path_key"] = key
             agent.meta["corridor_path"] = self.building.corridor_path(
-                agent.floor, (agent.x, agent.y), destination,
+                agent.floor, (agent.x, agent.y), destination, strict_end,
             )
+            agent.meta["corridor_previous_waypoint"] = (agent.x, agent.y)
         path = agent.meta["corridor_path"]
-        while len(path) > 1 and reached(agent, *path[0], tolerance):
+        if not path:
+            self._select_route(agent, {})
+            agent.meta.pop("corridor_path_key", None)
+            return False
+        check_visibility = (
+            strict_end
+            and self.time >= agent.meta.get("next_path_visibility_check", 0.0)
+        )
+        if check_visibility:
+            agent.meta["next_path_visibility_check"] = self.time + 1.0
+        if check_visibility and not self.building.corridor_segment_visible(
+            agent.floor, (agent.x, agent.y), path[0], agent.radius,
+        ):
+            path = self.building.corridor_path(
+                agent.floor, (agent.x, agent.y), destination, strict_end,
+            )
+            agent.meta["corridor_path"] = path
+            agent.meta["corridor_previous_waypoint"] = (agent.x, agent.y)
+            if not path:
+                return False
+        while len(path) > 1:
+            waypoint = path[0]
+            previous = agent.meta.get(
+                "corridor_previous_waypoint", (agent.x, agent.y),
+            )
+            segment_x = waypoint[0] - previous[0]
+            segment_y = waypoint[1] - previous[1]
+            segment_length_sq = segment_x * segment_x + segment_y * segment_y
+            crossed_waypoint = False
+            if segment_length_sq > 1e-8:
+                progress = (
+                    (agent.x - previous[0]) * segment_x
+                    + (agent.y - previous[1]) * segment_y
+                ) / segment_length_sq
+                crossed_waypoint = progress >= 1.0
+            if not reached(agent, *waypoint, tolerance) and not crossed_waypoint:
+                break
+            agent.meta["corridor_previous_waypoint"] = waypoint
             path.pop(0)
         agent.target_x, agent.target_y = path[0]
         return len(path) == 1
@@ -263,15 +397,20 @@ class SimulationEngine:
                     projected = self.building.project_to_corridor(
                         agent.floor, (agent.x, agent.y), previous, margin,
                     )
-                    if inside(*projected):
-                        agent.x, agent.y = projected
-                    else:
-                        candidates = [c.clamp(agent.x, agent.y, margin) for c in corridors]
-                        valid = [point for point in candidates if inside(*point)]
+                    proposed = (agent.x, agent.y)
+                    candidates = (
+                        projected,
+                        (previous[0], proposed[1]),
+                        (proposed[0], previous[1]),
+                    )
+                    valid = [point for point in candidates if inside(*point)]
+                    if valid:
                         agent.x, agent.y = min(
-                            valid or candidates,
-                            key=lambda point: math.hypot(point[0] - agent.x, point[1] - agent.y),
+                            valid, key=lambda point: math.dist(point, proposed)
                         )
+                    else:
+                        agent.x, agent.y = previous
+                        agent.vx = agent.vy = 0.0
                 return
             nav = self.building.raw["navigation"]
             agent.y = min(max(agent.y, nav["corridor_min_y"]), nav["corridor_max_y"])
@@ -279,7 +418,6 @@ class SimulationEngine:
     def _wall_force(self, agent) -> tuple[float, float]:
         social = self.config["social_force"]
         if agent.on_stair:
-            # Stair agents are explicitly constrained in the stair's rotated local frame.
             return 0.0, 0.0
         if agent.phase == "room":
             room = self.building.room(agent.classroom_id)
@@ -289,9 +427,6 @@ class SimulationEngine:
             coordinate = local_x if side in {"north", "south"} else local_y
             return oriented_rectangular_wall_force(agent, room, [(side, coordinate, door.width)], social)
         if self.building.schema_version == 2:
-            # Corridor unions may be L-, T-, or cross-shaped. Position constraints keep
-            # agents in their union; applying four walls per component would create
-            # artificial barriers where components overlap.
             return 0.0, 0.0
         nav = self.building.raw["navigation"]
         openings = [("north", stair.x, stair.enclosure_width) for stair in self.building.stairs]
@@ -378,7 +513,23 @@ class SimulationEngine:
         unit = ((agent.id * 2654435761 + 1013904223) % 10007) / 10006
         offset = (unit - 0.5) * usable_width
         angle = math.radians(exit_door.rotation)
-        return exit_door.x + math.cos(angle) * offset, exit_door.y + math.sin(angle) * offset
+        target = (
+            exit_door.x + math.cos(angle) * offset,
+            exit_door.y + math.sin(angle) * offset,
+        )
+        if self.building.schema_version == 2:
+            normal = -math.sin(angle), math.cos(angle)
+            candidates = [
+                (target[0] + normal[0] * agent.radius, target[1] + normal[1] * agent.radius),
+                (target[0] - normal[0] * agent.radius, target[1] - normal[1] * agent.radius),
+            ]
+            valid = [
+                point for point in candidates
+                if self.building.corridor_contains(0, *point, agent.radius)
+            ]
+            if valid:
+                return valid[0]
+        return target
 
     def _reached_exit(self, agent, exit_door, tolerance: float) -> bool:
         angle = math.radians(-exit_door.rotation)

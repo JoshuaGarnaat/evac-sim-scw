@@ -107,10 +107,39 @@ class Building:
 
     def corridor_contains(self, floor: int, x: float, y: float, clearance: float) -> bool:
         """Return whether a body centre is in corridor space and outside rooms."""
-        if not any(corridor.contains(x, y, clearance) for corridor in self.corridors_on(floor)):
+        corridors = self.corridors_on(floor)
+
+        def in_walkable_union(px: float, py: float) -> bool:
+            if any(corridor.contains(px, py) for corridor in corridors):
+                return True
+            for stair in self.stairs:
+                if floor not in stair.floors:
+                    continue
+                local_x, local_y = stair.world_to_local(px, py)
+                if (
+                    -stair.enclosure_width / 2 <= local_x <= stair.enclosure_width / 2
+                    and 0.0 <= local_y <= max(self.navigation_grid_size, clearance)
+                ):
+                    return True
             return False
+
+        if not in_walkable_union(x, y):
+            return False
+        if clearance > 0:
+            samples = 16
+            if not all(
+                in_walkable_union(
+                    x + math.cos(2 * math.pi * index / samples) * clearance,
+                    y + math.sin(2 * math.pi * index / samples) * clearance,
+                )
+                for index in range(samples)
+            ):
+                return False
+        room_margin = -clearance + 1e-6
         return not any(
-            room.kind != "stairwell" and room.floor == floor and room.contains(x, y, -clearance)
+            room.kind != "stairwell"
+            and room.floor == floor
+            and room.contains(x, y, room_margin)
             for room in self.rooms
         )
 
@@ -121,7 +150,6 @@ class Building:
         previous: tuple[float, float],
         clearance: float,
     ) -> tuple[float, float]:
-        """Project a rejected move onto a wall of the occupied corridor or room."""
         corridors = self.corridors_on(floor)
         previous_corridors = [
             corridor for corridor in corridors
@@ -151,7 +179,6 @@ class Building:
         if valid:
             return min(valid, key=lambda point: math.dist(point, proposed))
 
-        # Fallback for compound corners: retain the last valid point on this step.
         low, high = 0.0, 1.0
         for _ in range(14):
             middle = (low + high) / 2
@@ -169,21 +196,59 @@ class Building:
         )
 
     def corridor_path(
-        self, floor: int, start: tuple[float, float], end: tuple[float, float]
+        self, floor: int, start: tuple[float, float], end: tuple[float, float],
+        strict_end: bool = False,
     ) -> list[tuple[float, float]]:
         """Find a path through the union of arbitrary oriented corridor rectangles."""
         if self.schema_version == 1:
             return [end]
         size = self.navigation_grid_size
-        key = (floor, *(round(value / size) for point in (start, end) for value in point))
+        if strict_end:
+            key = (floor, strict_end, *(round(value, 5) for point in (start, end) for value in point))
+        else:
+            key = (floor, strict_end, *(round(value / size) for point in (start, end) for value in point))
         if key not in self._path_cache:
-            self._path_cache[key] = tuple(self._grid_path(floor, start, end, size))
+            self._path_cache[key] = tuple(self._grid_path(floor, start, end, size, strict_end))
         path = list(self._path_cache[key])
         if path:
             path[-1] = end
         return path
 
-    def _grid_path(self, floor, start, end, size) -> list[tuple[float, float]]:
+    def corridor_distance(
+        self, floor: int, start: tuple[float, float], end: tuple[float, float]
+    ) -> float:
+        """Return walkable route length, or infinity for disconnected components."""
+        if self.schema_version == 1:
+            return math.dist(start, end)
+        path = self.corridor_path(floor, start, end)
+        if not path:
+            return math.inf
+        distance = 0.0
+        previous = start
+        for point in path:
+            distance += math.dist(previous, point)
+            previous = point
+        return distance
+
+    def corridor_segment_visible(
+        self, floor: int, start: tuple[float, float], end: tuple[float, float],
+        clearance: float,
+    ) -> bool:
+        """Return whether a straight body-centre segment stays in walkable space."""
+        distance = math.dist(start, end)
+        spacing = max(self.navigation_grid_size * 0.2, 0.05)
+        samples = max(1, math.ceil(distance / spacing))
+        return all(
+            self.corridor_contains(
+                floor,
+                start[0] + (end[0] - start[0]) * index / samples,
+                start[1] + (end[1] - start[1]) * index / samples,
+                clearance,
+            )
+            for index in range(samples + 1)
+        )
+
+    def _grid_path(self, floor, start, end, size, strict_end=False) -> list[tuple[float, float]]:
         corridors = self.corridors_on(floor)
         if not corridors:
             return [end]
@@ -226,7 +291,7 @@ class Building:
 
         first, last = nearest(start), nearest(end)
         if first is None or last is None:
-            return [end]
+            return []
         queue = [(0.0, first)]
         cost = {first: 0.0}
         previous: dict[tuple[int, int], tuple[int, int]] = {}
@@ -249,7 +314,7 @@ class Building:
                 priority = candidate + math.dist(neighbor, last)
                 heapq.heappush(queue, (priority, neighbor))
         if last not in cost:
-            return [end]
+            return []
         cells = [last]
         while cells[-1] != first:
             cells.append(previous[cells[-1]])
@@ -267,11 +332,34 @@ class Building:
                     return False
             return True
 
+        def visible_world(left, right):
+            distance = math.dist(left, right)
+            samples = max(1, math.ceil(distance / (size * 0.25)))
+            return all(
+                self.corridor_contains(
+                    floor,
+                    left[0] + (right[0] - left[0]) * index / samples,
+                    left[1] + (right[1] - left[1]) * index / samples,
+                    self.navigation_clearance,
+                )
+                for index in range(samples + 1)
+            )
+
         result: list[tuple[float, float]] = []
         anchor = 0
         while anchor < len(cells) - 1:
             candidate = len(cells) - 1
-            while candidate > anchor + 1 and not visible(cells[anchor], cells[candidate]):
+            anchor_point = start if anchor == 0 else point(cells[anchor])
+            while candidate > anchor + 1 and (
+                not visible(cells[anchor], cells[candidate])
+                or (
+                    strict_end
+                    and not visible_world(
+                        anchor_point,
+                        end if candidate == len(cells) - 1 else point(cells[candidate]),
+                    )
+                )
+            ):
                 candidate -= 1
             result.append(end if candidate == len(cells) - 1 else point(cells[candidate]))
             anchor = candidate

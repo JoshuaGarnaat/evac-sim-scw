@@ -43,7 +43,6 @@ def _wall_point(item: dict[str, Any], room: dict[str, Any]) -> tuple[tuple[float
 
 
 def compile_floorplan(data: dict[str, Any]) -> dict[str, Any]:
-    """Compile human-friendly v2 sections into the canonical simulation layout."""
     validate_layout(data)
     if int(data.get("schema_version", 1)) == 1:
         return data

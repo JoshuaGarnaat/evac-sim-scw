@@ -15,7 +15,7 @@ movement:
   reaction_time: {mean: 3.0, std: 1.2, min: 0.5, max: 8.0}
   body_radius: {mean: 0.25, std: 0.025, min: 0.19, max: 0.35}
   max_acceleration: {mean: 1.6, std: 0.25, min: 0.8, max: 2.4}
-  personal_space: {mean: 0.15, std: 0.05, min: 0.8, max: 0.30}
+  personal_space: {mean: 0.15, std: 0.05, min: 0.08, max: 0.30}
   maximum_speed_multiplier: 1.30
   stair_speed_multiplier: 0.55
 social_force:
@@ -30,7 +30,7 @@ congestion:
   free_density: 0.75
   congested_density: 2.5
   jam_density: 5.4
-  minimum_speed_factor: 0.08
+  minimum_speed_factor: 0.35
 crowd_pressure:
   density_threshold: 3.0
   indicator_scale: 1.0
@@ -44,7 +44,7 @@ route_choice:
   stair_occupancy_queue_equivalent: 0.40
 simulation:
   dt: 0.10
-  max_time: 200.0
+  max_time: 400.0
   replay_sample_interval: 0.25
   metrics_sample_interval: 0.50
   neighbor_radius: 1.5

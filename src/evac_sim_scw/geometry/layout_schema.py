@@ -13,7 +13,6 @@ def rotate(x: float, y: float, angle_degrees: float) -> tuple[float, float]:
 
 @dataclass(frozen=True, slots=True)
 class Rect:
-    """A rectangle whose ``x, y`` is its local south-west corner."""
 
     id: str
     x: float

@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
-  "id": "irregular_school",
-  "name": "Irregular school with a rotated east wing",
+  "id": "scw_deurgrootte",
+  "name": "scw_deurgrootte",
   "synthetic": true,
   "units": "meters",
   "dimensions": {"width": 72.0, "depth": 70.0, "floor_height": 3.6, "slab_thickness": 0.22},
