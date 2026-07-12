@@ -4,6 +4,7 @@ import math
 
 
 def update_local_density(agents, grid, radius: float) -> None:
+    """Update each active agent's neighborhood density estimate."""
     area = math.pi * radius * radius
     for agent in agents:
         if agent.state == "exited":

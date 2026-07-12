@@ -16,6 +16,7 @@ STATE_CODES = {
 
 class ReplayWriter:
     def __init__(self, output_dir: Path, building, config: dict):
+        """Open replay output and prepare its viewer metadata."""
         self.path = output_dir / "replay.jsonl"
         self.metadata_path = output_dir / "replay_metadata.json"
         self.handle = self.path.open("w", encoding="utf-8", buffering=1024 * 1024)
@@ -32,6 +33,7 @@ class ReplayWriter:
         }
 
     def write_frame(self, timestamp: float, agents, evacuated: int) -> None:
+        """Append a compact snapshot of every agent to the replay stream."""
         packed = []
         for a in agents:
             stair = a.selected_stair if a.on_stair else None
@@ -45,6 +47,7 @@ class ReplayWriter:
         self.last_timestamp = timestamp
 
     def close(self) -> dict:
+        """Finalize replay metadata and return it for metric export."""
         self.handle.close()
         elapsed = time.perf_counter() - self.started
         self.metadata.update({

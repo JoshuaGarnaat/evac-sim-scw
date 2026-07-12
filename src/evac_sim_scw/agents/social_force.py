@@ -10,6 +10,7 @@ from ..geometry.layout_schema import rotate
 #
 
 def movement_force(agent, target_x: float, target_y: float, desired_speed: float, neighbors, config: dict) -> tuple[float, float]:
+    """Calculate desired-motion and pedestrian-repulsion acceleration."""
     dx, dy = target_x - agent.x, target_y - agent.y
     distance = max(math.hypot(dx, dy), 1e-6)
     tau = config["relaxation_time"]
@@ -25,12 +26,14 @@ def movement_force(agent, target_x: float, target_y: float, desired_speed: float
         d = max(math.hypot(rx, ry), 0.05)
         nx, ny = rx / d, ry / d
         preferred = agent.radius + other.radius + 0.5 * agent.personal_space
+        # Repulsion grows smoothly before contact, then stiffens if bodies overlap.
         repulsion = strength * math.exp((preferred - d) / decay)
         overlap = max(0.0, agent.radius + other.radius - d)
         fx += (repulsion + contact_k * overlap) * nx
         fy += (repulsion + contact_k * overlap) * ny
         closing = (agent.vx - other.vx) * nx + (agent.vy - other.vy) * ny
         if closing < 0 and d < preferred * 1.8:
+            # Start steering away when the two agents are still approaching each other.
             fx -= config["predictive_avoidance"] * closing * nx
             fy -= config["predictive_avoidance"] * closing * ny
     magnitude = math.hypot(fx, fy)
@@ -42,12 +45,14 @@ def movement_force(agent, target_x: float, target_y: float, desired_speed: float
 
 
 def rectangular_wall_force(agent, bounds: tuple[float, float, float, float], openings: list[tuple[str, float, float]], config: dict) -> tuple[float, float]:
+    """Calculate wall repulsion for an axis-aligned rectangle with openings."""
     xmin, xmax, ymin, ymax = bounds
     strength = config["wall_repulsion_strength"]
     decay = config["wall_repulsion_range"]
     fx = fy = 0.0
 
     def is_open(side: str, coordinate: float) -> bool:
+        """Return whether a wall coordinate falls within an opening."""
         return any(item_side == side and abs(coordinate - center) <= width / 2 for item_side, center, width in openings)
 
     if not is_open("west", agent.y):

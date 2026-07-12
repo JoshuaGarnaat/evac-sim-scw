@@ -9,11 +9,13 @@ import matplotlib.pyplot as plt
 
 
 def _read(path: Path) -> list[dict]:
+    """Read CSV rows for chart generation."""
     with path.open("r", encoding="utf-8") as handle:
         return list(csv.DictReader(handle))
 
 
 def _chart(output: Path, name: str, title: str, x, series: list[tuple[str, list[float]]], ylabel: str) -> None:
+    """Render and save one time-series chart."""
     fig, ax = plt.subplots(figsize=(10, 5.2), layout="constrained")
     for label, values in series:
         ax.plot(x, values, label=label, linewidth=1.8)
@@ -27,6 +29,7 @@ def _chart(output: Path, name: str, title: str, x, series: list[tuple[str, list[
 
 
 def generate_charts(result_dir: str | Path) -> Path:
+    """Generate the standard charts for a simulation result directory."""
     result = Path(result_dir)
     rows = _read(result / "time_series_metrics.csv")
     output = result / "charts"

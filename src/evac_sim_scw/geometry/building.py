@@ -12,6 +12,7 @@ from .layout_schema import Door, Rect, Stairwell
 
 class Building:
     def __init__(self, layout_path: str | Path):
+        """Load the floorplan and prepare the geometry used during a run."""
         self.path = Path(layout_path).resolve()
         self.source, self.raw = load_floorplan(self.path)
         self.schema_version = int(self.source.get("schema_version", 1))
@@ -50,6 +51,7 @@ class Building:
         ]
 
     def _expand_rooms(self) -> list[Rect]:
+        """Turn both listed and generated rooms into the same rectangle format."""
         rooms: list[Rect] = []
         for item in self.raw.get("rooms", []):
             rooms.append(Rect(
@@ -71,6 +73,7 @@ class Building:
         return rooms
 
     def _make_doors(self) -> list[Door]:
+        """Use supplied doors in v2 layouts or build the older layout's doors."""
         if self.schema_version == 2:
             return [Door(
                 d["id"], d["floor"], d["x"], d["y"], d["width"], d["kind"], tuple(d["connects"]),
@@ -97,12 +100,15 @@ class Building:
         return doors
 
     def room_door(self, room_id: str) -> Door:
+        """Return the door that leads out of a room."""
         return next(d for d in self.doors if d.connects[0] == room_id)
 
     def room(self, room_id: str) -> Rect:
+        """Return the room rectangle with the supplied identifier."""
         return next(room for room in self.rooms if room.id == room_id)
 
     def corridors_on(self, floor: int) -> list[Rect]:
+        """Return corridor rectangles on one floor."""
         return [corridor for corridor in self.corridors if corridor.floor == floor]
 
     def corridor_contains(self, floor: int, x: float, y: float, clearance: float) -> bool:
@@ -150,6 +156,7 @@ class Building:
         previous: tuple[float, float],
         clearance: float,
     ) -> tuple[float, float]:
+        """Nudge a proposed point back into the nearest usable corridor space."""
         corridors = self.corridors_on(floor)
         previous_corridors = [
             corridor for corridor in corridors
@@ -157,6 +164,7 @@ class Building:
         ]
         candidates = [corridor.clamp(*proposed, clearance) for corridor in previous_corridors]
 
+        # If a move enters a room, try the nearest point just outside each room edge.
         epsilon = 1e-5
         for room in self.rooms:
             if room.floor != floor or room.kind == "stairwell" or not room.contains(*proposed, -clearance):
@@ -179,6 +187,7 @@ class Building:
         if valid:
             return min(valid, key=lambda point: math.dist(point, proposed))
 
+        # As a last resort, walk back along the attempted move to the last safe spot.
         low, high = 0.0, 1.0
         for _ in range(14):
             middle = (low + high) / 2
@@ -199,7 +208,7 @@ class Building:
         self, floor: int, start: tuple[float, float], end: tuple[float, float],
         strict_end: bool = False,
     ) -> list[tuple[float, float]]:
-        """Find a path through the union of arbitrary oriented corridor rectangles."""
+        """Find a path through the joined, possibly rotated corridor areas."""
         if self.schema_version == 1:
             return [end]
         size = self.navigation_grid_size
@@ -208,6 +217,7 @@ class Building:
         else:
             key = (floor, strict_end, *(round(value / size) for point in (start, end) for value in point))
         if key not in self._path_cache:
+            # Paths are reused because many agents travel toward the same destinations.
             self._path_cache[key] = tuple(self._grid_path(floor, start, end, size, strict_end))
         path = list(self._path_cache[key])
         if path:
@@ -217,7 +227,7 @@ class Building:
     def corridor_distance(
         self, floor: int, start: tuple[float, float], end: tuple[float, float]
     ) -> float:
-        """Return walkable route length, or infinity for disconnected components."""
+        """Return the walkable route length, or infinity when areas do not connect."""
         if self.schema_version == 1:
             return math.dist(start, end)
         path = self.corridor_path(floor, start, end)
@@ -234,7 +244,7 @@ class Building:
         self, floor: int, start: tuple[float, float], end: tuple[float, float],
         clearance: float,
     ) -> bool:
-        """Return whether a straight body-centre segment stays in walkable space."""
+        """Check that a straight body-centre route stays in clear corridor space."""
         distance = math.dist(start, end)
         spacing = max(self.navigation_grid_size * 0.2, 0.05)
         samples = max(1, math.ceil(distance / spacing))
@@ -249,6 +259,7 @@ class Building:
         )
 
     def _grid_path(self, floor, start, end, size, strict_end=False) -> list[tuple[float, float]]:
+        """Use A* on the navigation grid, then simplify the resulting waypoints."""
         corridors = self.corridors_on(floor)
         if not corridors:
             return [end]
@@ -257,6 +268,7 @@ class Building:
         rows = math.ceil(self.depth / size)
 
         if floor not in self._walkable_cells:
+            # Build the clearance-aware grid once per floor instead of for every route.
             self._walkable_cells[floor] = frozenset(
                 (column, row)
                 for column in range(columns)
@@ -275,6 +287,7 @@ class Building:
             return cell in walkable
 
         def nearest(value):
+            # Start in the point's cell, then widen the search until a walkable cell is found.
             initial = (math.floor(value[0] / size), math.floor(value[1] / size))
             if allowed(initial):
                 return initial
@@ -305,6 +318,7 @@ class Building:
                 if not allowed(neighbor):
                     continue
                 if dx and dy and (not allowed((current[0] + dx, current[1])) or not allowed((current[0], current[1] + dy))):
+                    # Do not let diagonal moves cut through a blocked corner.
                     continue
                 candidate = cost[current] + math.hypot(dx, dy)
                 if candidate >= cost.get(neighbor, math.inf):
@@ -321,6 +335,7 @@ class Building:
         cells.reverse()
         
         def visible(left_cell, right_cell):
+            # Cheap grid check to remove unnecessary A* waypoints.
             left, right = point(left_cell), point(right_cell)
             distance = math.dist(left, right)
             samples = max(1, math.ceil(distance / (size * 0.4)))
@@ -346,6 +361,7 @@ class Building:
             )
 
         result: list[tuple[float, float]] = []
+        # Keep the furthest waypoint that still has a clear line of sight from this anchor.
         anchor = 0
         while anchor < len(cells) - 1:
             candidate = len(cells) - 1
@@ -366,6 +382,7 @@ class Building:
         return result or [end]
 
     def serializable(self) -> dict[str, Any]:
+        """Return the viewer-safe representation of this building."""
         return {
             "id": self.raw["id"], "synthetic": self.raw.get("synthetic", True),
             "schema_version": self.schema_version,

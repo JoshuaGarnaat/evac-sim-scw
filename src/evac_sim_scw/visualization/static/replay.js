@@ -2,6 +2,7 @@ const METADATA_URL = '/data/replay_metadata.json';
 const REPLAY_URL = '/data/replay.jsonl';
 
 export async function loadReplay() {
+  // Fetch and decode the metadata plus newline-delimited replay frames.
   const [metadataResponse, replayResponse] = await Promise.all([
     fetch(METADATA_URL),
     fetch(REPLAY_URL),
@@ -29,6 +30,7 @@ export async function loadReplay() {
 }
 
 export function framePair(frames, time) {
+  // Locate the adjacent frames used to interpolate a requested time.
   let low = 0;
   let high = frames.length - 1;
 

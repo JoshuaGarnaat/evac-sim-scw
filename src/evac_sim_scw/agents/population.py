@@ -7,11 +7,12 @@ from .agent import Agent
 
 
 def _clipped_normal(rng, spec: dict, count: int) -> np.ndarray:
+    """Sample a normal distribution while enforcing configured bounds."""
     values = rng.normal(spec["mean"], spec["std"], count)
     return np.clip(values, spec["min"], spec["max"])
 
-# Create a population based on the configuration
 def create_population(building, config: dict) -> list[Agent]:
+    """Create reproducible agents with sampled movement characteristics."""
     population = config["population"]
     movement = config["movement"]
     rng = np.random.default_rng(config["scenario"]["random_seed"])
@@ -25,6 +26,7 @@ def create_population(building, config: dict) -> list[Agent]:
     spaces = _clipped_normal(rng, movement["personal_space"], count)
     agents: list[Agent] = []
     for i in range(count):
+        # Cycle classrooms so the starting population is distributed evenly.
         room = rooms[i % len(rooms)]
         slot = i // len(rooms)
         columns = max(2, int((room.width - 1.0) / 0.75))

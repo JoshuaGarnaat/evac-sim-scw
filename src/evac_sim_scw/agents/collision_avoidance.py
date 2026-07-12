@@ -4,6 +4,7 @@ import math
 
 
 def separate(agent, neighbors, max_correction: float = 0.04) -> tuple[float, float]:
+    """Return a capped positional correction for overlapping agents."""
     cx = cy = 0.0
     for other in neighbors:
         if other.id == agent.id or other.state == "exited":

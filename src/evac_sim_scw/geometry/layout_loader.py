@@ -9,12 +9,14 @@ from .layout_schema import rotate, validate_layout
 
 
 def _pair(value: Any, name: str) -> tuple[float, float]:
+    """Validate and convert a two-value coordinate sequence."""
     if not isinstance(value, list) or len(value) != 2:
         raise ValueError(f"{name} must be a two-number array")
     return float(value[0]), float(value[1])
 
 
 def _identifier(value: str, section: str, floor: int, many_floors: bool) -> str:
+    """Create a unique generated identifier for a floorplan item."""
     result = value.format(section=section, floor=floor)
     if "{" not in value and many_floors:
         result = f"{result}_F{floor}"
@@ -22,11 +24,13 @@ def _identifier(value: str, section: str, floor: int, many_floors: bool) -> str:
 
 
 def _transform(origin: tuple[float, float], angle: float, point: tuple[float, float]) -> tuple[float, float]:
+    """Rotate a local point and translate it to its section origin."""
     x, y = rotate(*point, angle)
     return origin[0] + x, origin[1] + y
 
 
 def _wall_point(item: dict[str, Any], room: dict[str, Any]) -> tuple[tuple[float, float], float, str]:
+    """Resolve a wall-relative opening into a world point, rotation, and side."""
     side = item["wall"].lower()
     width, depth = _pair(room["size"], "room size")
     offset = float(item.get("offset", (width if side in {"north", "south"} else depth) / 2))
@@ -43,6 +47,7 @@ def _wall_point(item: dict[str, Any], room: dict[str, Any]) -> tuple[tuple[float
 
 
 def compile_floorplan(data: dict[str, Any]) -> dict[str, Any]:
+    """Expand schema-v2 sections into a flat floorplan."""
     validate_layout(data)
     if int(data.get("schema_version", 1)) == 1:
         return data
@@ -182,5 +187,6 @@ def compile_floorplan(data: dict[str, Any]) -> dict[str, Any]:
 
 
 def load_floorplan(path: str | Path) -> tuple[dict[str, Any], dict[str, Any]]:
+    """Load, validate, and compile a floorplan JSON file."""
     source = load_json(path)
     return source, compile_floorplan(source)

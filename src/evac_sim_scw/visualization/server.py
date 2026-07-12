@@ -18,10 +18,12 @@ class ReplayHandler(http.server.SimpleHTTPRequestHandler):
     metadata_data: bytes | None = None
 
     def end_headers(self):
+        """Disable caching so the viewer always receives current data."""
         self.send_header("Cache-Control", "no-store")
         super().end_headers()
 
     def do_GET(self):
+        """Serve replay data endpoints and static viewer assets."""
         path = urllib.parse.urlparse(self.path).path
         if path == "/data/replay.jsonl":
             if self.replay_data is not None:
@@ -34,6 +36,7 @@ class ReplayHandler(http.server.SimpleHTTPRequestHandler):
         return super().do_GET()
 
     def _send_file(self, path: Path | None, content_type: str):
+        """Stream a replay asset from disk with its content type."""
         if path is None or not path.exists():
             self.send_error(404)
             return
@@ -46,6 +49,7 @@ class ReplayHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(chunk)
 
     def _send_bytes(self, data: bytes, content_type: str):
+        """Serve an in-memory replay asset with its content type."""
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(data)))
@@ -53,6 +57,7 @@ class ReplayHandler(http.server.SimpleHTTPRequestHandler):
         self.wfile.write(data)
 
     def log_message(self, format, *args):
+        """Route HTTP request logs through the application logger."""
         logging.debug(format, *args)
 
 
@@ -62,12 +67,14 @@ class ViewerHTTPServer(http.server.ThreadingHTTPServer):
     allow_reuse_address = False
 
     def server_bind(self):
+        """Bind exclusively on Windows to avoid shared viewer ports."""
         if hasattr(socket, "SO_EXCLUSIVEADDRUSE"):
             self.socket.setsockopt(socket.SOL_SOCKET, socket.SO_EXCLUSIVEADDRUSE, 1)
         super().server_bind()
 
 
 def _serve(host: str, port: int, open_browser: bool, label: str) -> None:
+    """Start the viewer on the first available port in a small range."""
     static = Path(__file__).parent / "static"
     handler = partial(ReplayHandler, directory=str(static))
     server = None
@@ -95,6 +102,7 @@ def _serve(host: str, port: int, open_browser: bool, label: str) -> None:
 
 
 def serve_replay(replay_path: str | Path, host: str = "127.0.0.1", port: int = 8765, open_browser: bool = True) -> None:
+    """Serve an on-disk replay in the browser viewer."""
     replay = Path(replay_path).resolve()
     ReplayHandler.replay_path = replay
     ReplayHandler.metadata_path = replay.parent / "replay_metadata.json"
@@ -123,6 +131,7 @@ def floorplan_preview_data(layout_path: str | Path) -> tuple[bytes, bytes]:
 
 
 def serve_floorplan(layout_path: str | Path, host: str = "127.0.0.1", port: int = 8765, open_browser: bool = True) -> None:
+    """Serve a static floorplan preview in the browser viewer."""
     metadata, replay = floorplan_preview_data(layout_path)
     ReplayHandler.replay_path = None
     ReplayHandler.metadata_path = None

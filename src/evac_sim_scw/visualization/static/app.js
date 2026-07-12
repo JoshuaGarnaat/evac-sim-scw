@@ -54,12 +54,14 @@ const playback = {
 };
 
 function formatTime(seconds) {
+  // Format elapsed seconds consistently for the viewer HUD.
   const minutes = String(Math.floor(seconds / 60)).padStart(2, '0');
   const remainder = (seconds % 60).toFixed(1).padStart(4, '0');
   return `${minutes}:${remainder}`;
 }
 
 function updateViewport() {
+  // Keep the renderer and camera aspect ratio aligned with the canvas.
   camera.aspect = innerWidth / innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(innerWidth, innerHeight, false);
@@ -100,6 +102,7 @@ async function startViewer() {
 }
 
 function createAgentMesh(population) {
+  // Create one instanced marker for each simulated agent.
   const geometry = new THREE.CapsuleGeometry(0.23, 0.72, 2, 5);
   const material = new THREE.MeshStandardMaterial({ color: 0x4cc9ff });
   const mesh = new THREE.InstancedMesh(geometry, material, population);
@@ -109,6 +112,7 @@ function createAgentMesh(population) {
 }
 
 function bindControls(floorGroups, heatmap, navigationOverlay) {
+  // Wire playback, speed, floor, and overlay controls to the scene.
   elements.play.addEventListener('click', () => {
     playback.playing = !playback.playing;
     elements.play.textContent = playback.playing ? 'Pause' : 'Play';
@@ -138,6 +142,7 @@ function bindControls(floorGroups, heatmap, navigationOverlay) {
 }
 
 function runAnimationLoop({ agents, frames, heatmap, metadata }) {
+  // Interpolate replay frames and render the scene on each animation tick.
   const dummy = new THREE.Object3D();
   const color = new THREE.Color();
   let previousTimestamp = performance.now();
@@ -149,11 +154,13 @@ function runAnimationLoop({ agents, frames, heatmap, metadata }) {
   let lowFpsWindows = 0;
 
   function drawReplayFrame() {
+    // Apply the current interpolated replay state to agent instances.
     const { a, b, alpha, index } = framePair(frames, playback.currentTime);
     const shouldUpdateColors = index !== lastColorFrame;
 
     a.a.forEach((agent, agentIndex) => {
       const nextAgent = b.a[agentIndex] ?? agent;
+      // Positions blend smoothly; categorical state changes half-way between frames.
       const useNextState = alpha > 0.5;
       const state = useNextState ? nextAgent[5] : agent[5];
       const floor = useNextState ? nextAgent[4] : agent[4];
@@ -184,6 +191,7 @@ function runAnimationLoop({ agents, frames, heatmap, metadata }) {
       playback.currentTime - lastHeatmapUpdate >= HEATMAP_UPDATE_INTERVAL
       || playback.currentTime < lastHeatmapUpdate
     ) {
+      // The heatmap is deliberately throttled because updating every cell is expensive.
       heatmap.update(a.a);
       lastHeatmapUpdate = playback.currentTime;
     }
@@ -192,6 +200,7 @@ function runAnimationLoop({ agents, frames, heatmap, metadata }) {
       playback.currentTime - lastHudUpdate >= HUD_UPDATE_INTERVAL
       || playback.currentTime < lastHudUpdate
     ) {
+      // HUD updates need not happen on every rendered frame.
       const evacuated = Math.round(THREE.MathUtils.lerp(a.e, b.e, alpha));
       updateHud(evacuated, metadata.population);
       lastHudUpdate = playback.currentTime;
@@ -199,6 +208,7 @@ function runAnimationLoop({ agents, frames, heatmap, metadata }) {
   }
 
   function animate(timestamp) {
+    // Advance playback according to wall-clock time and selected speed.
     requestAnimationFrame(animate);
     const delta = Math.min(MAX_FRAME_DELTA, (timestamp - previousTimestamp) / 1000);
     previousTimestamp = timestamp;
@@ -222,6 +232,7 @@ function runAnimationLoop({ agents, frames, heatmap, metadata }) {
       lowFpsWindows = fps < LOW_FPS_THRESHOLD ? lowFpsWindows + 1 : 0;
 
       if (lowFpsWindows >= 2 && renderer.getPixelRatio() > 1) {
+        // Prefer smooth playback over high-DPI rendering after repeated slow samples.
         renderer.setPixelRatio(1);
         updateViewport();
         lowFpsWindows = 0;
@@ -236,6 +247,7 @@ function runAnimationLoop({ agents, frames, heatmap, metadata }) {
 }
 
 function updateHud(evacuated, population) {
+  // Display current evacuation progress in the viewer header.
   elements.timer.textContent = formatTime(playback.currentTime);
   elements.evacuated.textContent = evacuated.toLocaleString();
   elements.remaining.textContent = (population - evacuated).toLocaleString();

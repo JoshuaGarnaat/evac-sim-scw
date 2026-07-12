@@ -12,6 +12,7 @@ class Route:
 
 
 def route_cost(agent, exit_door, stair, queues: dict[str, int], config: dict, building=None) -> float:
+    """Estimate route travel cost including distance and queue penalties."""
     route = config["route_choice"]
     if building is not None and agent.floor > 0 and stair is not None:
         entry = stair.local_to_world(-stair.enclosure_width * 0.23, stair.entry_offset)

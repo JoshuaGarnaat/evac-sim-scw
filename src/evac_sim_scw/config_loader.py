@@ -8,6 +8,7 @@ import yaml
 
 
 def _resolve(base: Path, value: str) -> Path:
+    """Resolve a configured path relative to its config file when possible."""
     path = Path(value)
     if path.is_absolute():
         return path
@@ -19,6 +20,7 @@ def _resolve(base: Path, value: str) -> Path:
 
 
 def load_config(path: str | Path) -> dict[str, Any]:
+    """Load, validate, and normalize a scenario configuration."""
     config_path = Path(path).resolve()
     with config_path.open("r", encoding="utf-8") as handle:
         config = yaml.safe_load(handle)
@@ -34,5 +36,6 @@ def load_config(path: str | Path) -> dict[str, Any]:
 
 
 def load_json(path: str | Path) -> dict[str, Any]:
+    """Load a JSON object from disk."""
     with Path(path).open("r", encoding="utf-8") as handle:
         return json.load(handle)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 
 def interpolate_agent(a: list, b: list, alpha: float) -> list:
+    """Linearly interpolate an agent record between two replay frames."""
     result = a.copy()
     # Packed replay fields 1-3 and 6-7 are continuous; floor and state are categorical.
     for index in (1, 2, 3, 6, 7):

@@ -6,6 +6,7 @@ from pathlib import Path
 
 
 def configure_logging(verbose: bool = False) -> None:
+    """Configure the command-line logging format and verbosity."""
     logging.basicConfig(
         level=logging.DEBUG if verbose else logging.INFO,
         format="%(asctime)s | %(levelname)s | %(message)s",
@@ -14,6 +15,7 @@ def configure_logging(verbose: bool = False) -> None:
 
 
 def _latest(path_value: str) -> Path:
+    """Replace a ``latest`` path component using the output marker file."""
     path = Path(path_value)
     if path.exists() or "latest" not in path.parts:
         return path
@@ -29,6 +31,7 @@ def _latest(path_value: str) -> Path:
 
 
 def parser() -> argparse.ArgumentParser:
+    """Build the command-line parser and its subcommands."""
     result = argparse.ArgumentParser(prog="evac-sim", description="Run and inspect evacuation simulations")
     result.add_argument("--verbose", action="store_true", help="Enable debug logging")
     commands = result.add_subparsers(dest="command", required=True)
@@ -54,6 +57,7 @@ def parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> None:
+    """Dispatch the requested command-line action."""
     args = parser().parse_args(argv)
     configure_logging(args.verbose)
     if args.command == "run":

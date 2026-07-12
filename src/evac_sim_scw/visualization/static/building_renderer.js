@@ -6,6 +6,7 @@ const HEATMAP_COLUMNS = 12;
 const HEATMAP_ROWS = 6;
 
 function createMaterial(color, opacity = 1) {
+  // Create a lit material with optional transparency.
   return new THREE.MeshStandardMaterial({
     color,
     opacity,
@@ -15,6 +16,7 @@ function createMaterial(color, opacity = 1) {
 }
 
 function addBox(parent, size, position, color, opacity = 1) {
+  // Add a centered box mesh to a scene group.
   const mesh = new THREE.Mesh(
     new THREE.BoxGeometry(...size),
     createMaterial(color, opacity),
@@ -54,9 +56,11 @@ function rectContains(item, x, y, margin = 0) {
 }
 
 function navigationContains(building, floor, x, y, clearance) {
+  // Match the simulation's corridor-only navigation eligibility.
   const inCorridor = building.corridors
     .some(corridor => corridor.floor === floor && rectContains(corridor, x, y, clearance));
   if (!inCorridor) return false;
+  // A corridor cell inside a regular room is still off limits to pathfinding.
   return !building.rooms.some(room => (
     room.floor === floor
     && room.kind !== 'stairwell'
@@ -72,6 +76,7 @@ function addLocalBox(parent, item, size, localPosition, elevation, color, opacit
 }
 
 function renderFloorSlab(building, floor, elevation, group) {
+  // Render the floor base while leaving stair openings unfilled.
   if ((building.schema_version || 1) >= 2) {
     return;
   }
@@ -146,6 +151,7 @@ function renderFloorSlab(building, floor, elevation, group) {
 }
 
 function renderRoomWalls(room, door, elevation, group) {
+  // Build room walls in local coordinates, leaving a doorway gap.
   const wallHeight = 1.3;
   const wallThickness = 0.1;
   const wallElevation = elevation + wallHeight / 2;
@@ -201,6 +207,7 @@ function renderRoomWalls(room, door, elevation, group) {
 }
 
 function renderStairFlight(stair, floor, firstFlight, floorHeight, entrance, landing, frame) {
+  // Draw one half-flight of the U-shaped stair representation.
   const enclosureWidth = stair.enclosure_width || stair.width * 2.4;
   const flightOffset = enclosureWidth * 0.23;
   const run = landing - entrance;
@@ -219,6 +226,7 @@ function renderStairFlight(stair, floor, firstFlight, floorHeight, entrance, lan
 }
 
 function renderFloor(building, floor, group) {
+  // Render all geometry belonging to one building floor.
   const floorHeight = building.dimensions.floor_height;
   const elevation = floor * floorHeight;
   renderFloorSlab(building, floor, elevation, group);
@@ -257,6 +265,7 @@ function renderFloor(building, floor, group) {
 }
 
 function renderExits(building, groundFloorGroup) {
+  // Mark exterior exit locations on the ground floor.
   building.exits.forEach(exit => {
     const size = [exit.width, 2.5, 0.18];
     const marker = addBox(
@@ -272,6 +281,7 @@ function renderExits(building, groundFloorGroup) {
 }
 
 function renderStairs(building, floorGroups) {
+  // Add visible stair flights between adjacent floors.
   const floorHeight = building.dimensions.floor_height;
   building.stairs.forEach(stair => {
     stair.floors.filter(floor => floor > 0).forEach(floor => {
@@ -297,6 +307,7 @@ function renderStairs(building, floorGroups) {
 }
 
 export function renderBuilding(scene, building) {
+  // Construct the complete building scene and return its floor groups.
   const floorCount = Math.max(...building.floors.map(floor => floor.level)) + 1;
   const floorGroups = Array.from({ length: floorCount }, () => new THREE.Group());
   floorGroups.forEach(group => scene.add(group));
@@ -308,6 +319,7 @@ export function renderBuilding(scene, building) {
 }
 
 export function createHeatmap(scene, building) {
+  // Create an instanced density overlay with update and visibility controls.
   const floorCount = Math.max(...building.floors.map(floor => floor.level)) + 1;
   const cellWidth = building.dimensions.width / HEATMAP_COLUMNS;
   const cellDepth = building.dimensions.depth / HEATMAP_ROWS;
@@ -318,6 +330,7 @@ export function createHeatmap(scene, building) {
   const color = new THREE.Color();
 
   for (let floor = 0; floor < floorCount; floor += 1) {
+    // One instanced mesh per floor makes frequent color updates inexpensive.
     const material = new THREE.MeshBasicMaterial({
       depthWrite: false,
       opacity: 0.3,
@@ -348,9 +361,11 @@ export function createHeatmap(scene, building) {
   }
 
   function update(agents) {
+    // Count active agents per cell and map density to heatmap colors.
     const counts = new Uint16Array(floorCount * cellsPerFloor);
     agents.forEach(agent => {
       if (agent[5] === 8) {
+        // Exited agents should not contribute to the live crowd-density overlay.
         return;
       }
 
@@ -380,6 +395,7 @@ export function createHeatmap(scene, building) {
 }
 
 export function createNavigationOverlay(scene, building) {
+  // Visualize the sampled navigation cells used by corridor pathfinding.
   const floorCount = Math.max(...building.floors.map(floor => floor.level)) + 1;
   const gridSize = building.navigation?.grid_size || 0.5;
   const clearance = building.navigation?.clearance || 0.32;

@@ -2,8 +2,8 @@ from __future__ import annotations
 
 from ..geometry.nav_graph import Route, route_cost
 
-# Cost based route finding
 def choose_route(agent, building, queues: dict[str, int], config: dict) -> Route:
+    """Select the lowest-cost exit and stair combination for an agent."""
     candidates: list[Route] = []
     stairs = building.stairs if agent.floor > 0 else [None]
     for stair in stairs:

@@ -21,10 +21,12 @@ from .metrics import MetricsCollector
 
 
 def reached(agent, x: float, y: float, tolerance: float) -> bool:
+    """Return whether an agent is within tolerance of a target point."""
     return math.hypot(agent.x - x, agent.y - y) <= tolerance
     
 class SimulationEngine:
     def __init__(self, config: dict):
+        """Initialize the building, population and runtime state."""
         self.config = config
         self.building = Building(config["building"]["layout_file"])
         self.agents = create_population(self.building, config)
@@ -41,6 +43,7 @@ class SimulationEngine:
             agent.target_x, agent.target_y = door.x, door.y
 
     def run(self) -> Path:
+        """Run the simulation loop and write all result artifacts."""
         output = self._make_output_dir()
         replay = ReplayWriter(output, self.building, self.config)
         dt = float(self.config["simulation"]["dt"])
@@ -72,13 +75,16 @@ class SimulationEngine:
         return output
 
     def step(self, dt: float) -> None:
+        """Advance every active agent by one simulation time step."""
         self.time += dt
+        # Rebuild shared spatial data once before every agent reads its neighbours.
         self.grid.rebuild(self.agents)
         update_local_density(self.agents, self.grid, self.config["simulation"]["density_radius"])
         occupancy, queues = self._stair_counts()
         route_load = Counter(queues)
         occupancy_weight = self.config["route_choice"]["stair_occupancy_queue_equivalent"]
         for stair_id, count in occupancy.items():
+            # People already on stairs also make that route less attractive.
             route_load[stair_id] += count * occupancy_weight
         for agent in self.agents:
             if agent.state == "exited":
@@ -88,6 +94,7 @@ class SimulationEngine:
                     continue
                 agent.state = "evacuating"
                 agent.last_motion_time = self.time
+            # Phase changes can alter targets before the movement forces are calculated.
             self._advance_phase(agent, route_load)
             if agent.state in {"queued", "exited"} or self.time < agent.hesitation_until:
                 agent.vx = agent.vy = 0.0
@@ -112,6 +119,7 @@ class SimulationEngine:
                 agent.phase == "corridor"
                 and self.time - agent.meta.get("last_progress_time", self.time) > 2.5
             )
+            # Near exits, reducing repulsion helps people clear the opening instead of backing away.
             near_exit = False
             if agent.floor == 0 and agent.phase == "corridor":
                 exit_door = self._exit(agent.selected_exit)
@@ -231,12 +239,14 @@ class SimulationEngine:
                 agent.stair_time += dt
 
     def _advance_phase(self, agent, queues: dict[str, int]) -> None:
+        """Move an agent through room, corridor, stair, and exit phases."""
         tolerance = self.config["simulation"]["waypoint_tolerance"]
         if agent.on_stair:
             self._advance_stair_phase(agent)
             if agent.on_stair:
                 return
         if agent.phase == "room" and reached(agent, agent.target_x, agent.target_y, tolerance):
+            # Crossing the room doorway is recorded once, before aiming for the corridor.
             if agent.id not in self.door_seen:
                 self.metrics.record_door(self.time, self.building.room_door(agent.classroom_id).id, agent.id)
                 self.door_seen.add(agent.id)
@@ -263,6 +273,7 @@ class SimulationEngine:
                 <= lateral_limit + tolerance
             )
             if crossed_entry:
+                # Stair movement follows two flights separated by a landing.
                 agent.state = "on_stairs"
                 agent.on_stair = True
                 agent.stair_from_floor = agent.floor
@@ -277,6 +288,7 @@ class SimulationEngine:
                 self._mark_exited(agent, exit_door)
 
     def _mark_exited(self, agent, exit_door) -> None:
+        """Record an agent's completed evacuation exactly once."""
         if agent.state == "exited":
             return
         agent.state = "exited"
@@ -286,11 +298,13 @@ class SimulationEngine:
         self.metrics.record_exit(self.time, exit_door.id, agent.id)
 
     def _select_route(self, agent, queues: dict[str, int]) -> None:
+        """Store the currently preferred exit and stair route."""
         route = choose_route(agent, self.building, queues, self.config)
         agent.selected_exit = route.exit_id
         agent.selected_stair = route.stair_id
 
     def _maybe_reroute(self, agent, queues: dict[str, int]) -> None:
+        """Switch routes only when the estimated improvement is sufficient."""
         agent.last_route_check = self.time
         old_exit, old_stair = agent.selected_exit, agent.selected_stair
         old_route = choose_route(agent, self.building, queues, self.config)
@@ -310,6 +324,7 @@ class SimulationEngine:
     def _follow_corridor_path(
         self, agent, destination: tuple[float, float], strict_end: bool = False,
     ) -> bool:
+        """Cache and follow corridor waypoints toward a destination."""
         tolerance = self.config["simulation"]["waypoint_tolerance"]
         grid = self.building.navigation_grid_size
         key = (
@@ -317,6 +332,7 @@ class SimulationEngine:
             round(destination[0] / grid), round(destination[1] / grid),
         )
         if agent.meta.get("corridor_path_key") != key:
+            # Replan only when the floor, destination, or end constraint changes.
             agent.meta["corridor_path_key"] = key
             agent.meta["corridor_path"] = self.building.corridor_path(
                 agent.floor, (agent.x, agent.y), destination, strict_end,
@@ -360,15 +376,18 @@ class SimulationEngine:
                 crossed_waypoint = progress >= 1.0
             if not reached(agent, *waypoint, tolerance) and not crossed_waypoint:
                 break
+            # Drop waypoints that were reached or passed during a large time step.
             agent.meta["corridor_previous_waypoint"] = waypoint
             path.pop(0)
         agent.target_x, agent.target_y = path[0]
         return len(path) == 1
 
     def _constrain(self, agent, old_x: float | None = None, old_y: float | None = None) -> None:
+        """Keep an agent within valid room, corridor, or stair geometry."""
         agent.x = min(max(agent.x, 0.1), self.building.width - 0.1)
         agent.y = min(max(agent.y, 0.1), self.building.depth - 0.1)
         if agent.on_stair:
+            # Stairs use their own local coordinate frame and movement limits.
             stair = self._stair(agent.selected_stair)
             half_width = stair.width / 2
             local_x, local_y = stair.world_to_local(agent.x, agent.y)
@@ -416,6 +435,7 @@ class SimulationEngine:
             agent.y = min(max(agent.y, nav["corridor_min_y"]), nav["corridor_max_y"])
 
     def _wall_force(self, agent) -> tuple[float, float]:
+        """Return wall repulsion appropriate to the agent's current space."""
         social = self.config["social_force"]
         if agent.on_stair:
             return 0.0, 0.0
@@ -447,6 +467,7 @@ class SimulationEngine:
         return stair.local_to_world(-stair.enclosure_width * 0.23, stair.entry_offset)
 
     def _stair_landing_y(self, stair) -> float:
+        """Return the local forward coordinate of a stair landing."""
         return stair.entry_offset + min(5.9, stair.depth - 1.9)
 
     @staticmethod
@@ -456,6 +477,7 @@ class SimulationEngine:
         return min(max(local_x, centre_x - usable_half_width), centre_x + usable_half_width)
 
     def _advance_stair_phase(self, agent) -> None:
+        """Advance an agent across the two flights and landing of a stair."""
         stair = self._stair(agent.selected_stair)
         entry_y = stair.entry_offset
         landing_y = self._stair_landing_y(stair)
@@ -486,13 +508,14 @@ class SimulationEngine:
                 agent.stair_progress = 1.0
 
     def _update_stair_elevation(self, agent) -> None:
+        """Interpolate vertical position from an agent's stair progress."""
         stair = self._stair(agent.selected_stair)
         entry_y = stair.entry_offset
         landing_y = self._stair_landing_y(stair)
         run = max(landing_y - entry_y, 0.01)
         local_x, local_y = stair.world_to_local(agent.x, agent.y)
         top_z = agent.stair_from_floor * self.building.floor_height
-        # Reserve 40/20/40 percent of progress for the two flights and landing.
+        # Split vertical progress between the first flight, landing, and second flight.
         if agent.phase == "stair_first_flight":
             fraction = min(max((local_y - entry_y) / run, 0.0), 1.0)
             agent.stair_progress = 0.4 * fraction
@@ -508,6 +531,7 @@ class SimulationEngine:
             agent.z = top_z - self.building.floor_height * (0.5 + 0.5 * fraction)
 
     def _exit_target(self, agent, exit_door) -> tuple[float, float]:
+        """Choose a stable, clearance-aware point across an exit opening."""
         usable_width = max(0.0, exit_door.width - 2 * agent.radius)
         # Stable hashing distributes agents across the opening without adding RNG state.
         unit = ((agent.id * 2654435761 + 1013904223) % 10007) / 10006
@@ -532,6 +556,7 @@ class SimulationEngine:
         return target
 
     def _reached_exit(self, agent, exit_door, tolerance: float) -> bool:
+        """Check whether an agent overlaps the oriented exit opening."""
         angle = math.radians(-exit_door.rotation)
         dx, dy = agent.x - exit_door.x, agent.y - exit_door.y
         along = dx * math.cos(angle) - dy * math.sin(angle)
@@ -539,6 +564,7 @@ class SimulationEngine:
         return abs(normal) <= tolerance and abs(along) <= exit_door.width / 2
 
     def _stair_counts(self):
+        """Count current stair occupants and queued agents by stair ID."""
         occupancy = Counter(a.selected_stair for a in self.agents if a.on_stair)
         queues = Counter(a.selected_stair for a in self.agents if a.state == "queued")
         return occupancy, queues
@@ -550,6 +576,7 @@ class SimulationEngine:
         return next(e for e in self.building.exits if e.id == identifier)
 
     def _make_output_dir(self) -> Path:
+        """Create a unique timestamped simulation output directory."""
         root = Path(self.config["outputs"]["root"])
         root.mkdir(parents=True, exist_ok=True)
         output = root / datetime.now().strftime("%Y-%m-%d_%H%M%S")

@@ -5,6 +5,7 @@ const WALK_SPEED = 11;
 const SPRINT_SPEED = 28;
 
 export function installFreeCamera(camera, canvas) {
+  // Install controls and return the per-frame camera updater.
   const pressedKeys = new Set();
   const direction = new THREE.Vector3();
   const right = new THREE.Vector3();
@@ -29,6 +30,7 @@ export function installFreeCamera(camera, canvas) {
   });
 
   function update(delta) {
+    // Move along the camera's current view plane using the pressed keys.
     direction.set(
       Math.sin(yaw) * Math.cos(pitch),
       Math.sin(pitch),
@@ -50,6 +52,7 @@ export function installFreeCamera(camera, canvas) {
   }
 
   function overview() {
+    // Reset to the default elevated view of the whole building.
     camera.position.set(45, 62, 69);
     yaw = 0;
     pitch = -0.65;

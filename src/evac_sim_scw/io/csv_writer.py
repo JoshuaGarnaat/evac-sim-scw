@@ -5,6 +5,7 @@ from pathlib import Path
 
 
 def write_rows(path: str | Path, rows: list[dict], fieldnames: list[str] | None = None) -> None:
+    """Write dictionaries to CSV, including a header when rows exist."""
     target = Path(path)
     target.parent.mkdir(parents=True, exist_ok=True)
     if not rows:

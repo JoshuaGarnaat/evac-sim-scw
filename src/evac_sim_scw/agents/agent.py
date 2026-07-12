@@ -49,4 +49,5 @@ class Agent:
 
     @property
     def speed(self) -> float:
+        """Return the magnitude of the agent's horizontal velocity."""
         return (self.vx * self.vx + self.vy * self.vy) ** 0.5

@@ -9,6 +9,7 @@ from ..io.csv_writer import write_rows
 
 class MetricsCollector:
     def __init__(self):
+        """Initialize in-memory metric and event collections."""
         self.time_series: list[dict] = []
         self.exit_events: list[dict] = []
         self.door_events: list[dict] = []
@@ -16,6 +17,7 @@ class MetricsCollector:
         self.step_times: list[float] = []
 
     def sample(self, timestamp: float, agents, building, stair_occupancy: dict, stair_queues: dict) -> None:
+        """Capture conditions for one simulation timestamp."""
         active = [a for a in agents if a.state != "exited"]
         speeds = [a.speed for a in active]
         densities = [a.local_density for a in active]
@@ -40,12 +42,15 @@ class MetricsCollector:
             self.hotspots.append({"time": round(timestamp, 3), "floor": peak.floor, "x": round(peak.x, 2), "y": round(peak.y, 2), "density": round(peak.local_density, 3), "pressure": round(peak.pressure, 3)})
 
     def record_exit(self, timestamp: float, exit_id: str, agent_id: int) -> None:
+        """Record an agent passing through an exterior exit."""
         self.exit_events.append({"time": round(timestamp, 3), "exit_id": exit_id, "agent_id": agent_id})
 
     def record_door(self, timestamp: float, door_id: str, agent_id: int) -> None:
+        """Record an agent passing through its classroom door."""
         self.door_events.append({"time": round(timestamp, 3), "door_id": door_id, "agent_id": agent_id})
         
     def export(self, output: Path, agents, replay_meta: dict, total_time: float) -> None:
+        """Write summary, per-agent, time-series, and hotspot metrics."""
         evac_times = [a.evacuation_time for a in agents if a.evacuation_time is not None]
         all_speeds = [a.speed_sum / max(a.speed_samples, 1) for a in agents]
         summary = [{
@@ -71,10 +76,12 @@ class MetricsCollector:
 
 
 def _mean(values) -> float:
+    """Return a rounded mean, treating empty collections as zero."""
     return round(sum(values) / len(values), 5) if values else 0.0
 
 
 def _bin_events(events: list[dict], key: str) -> list[dict]:
+    """Event counts into one-second throughput buckets."""
     counts = defaultdict(int)
     for event in events:
         counts[(math.floor(event["time"]), event[key])] += 1
